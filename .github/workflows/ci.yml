@@ -30,6 +30,7 @@ jobs:
             p7zip-full \
             rpm \
             unzip \
+            wine \
             wine64 \
             xauth \
             xz-utils \
