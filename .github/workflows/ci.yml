@@ -19,6 +19,7 @@ jobs:
 
       - name: Install Tauri system dependencies
         run: |
+          sudo dpkg --add-architecture i386
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             libayatana-appindicator3-dev \
@@ -31,6 +32,7 @@ jobs:
             rpm \
             unzip \
             wine \
+            wine32:i386 \
             wine64 \
             xauth \
             xz-utils \
