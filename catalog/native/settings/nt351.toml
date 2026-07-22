@@ -1,0 +1,20 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "nt351"
+category = "settings"
+title = "Set Windows version to Windows NT 3.51"
+description = "Report Windows NT 3.51 to applications in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["windows version", "compatibility"]
+
+[constraints]
+architectures = ["win32"]
+
+[[steps]]
+type = "windows_version"
+version = "nt351"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "nt351"

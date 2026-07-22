@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "autostart_winedbg=disabled"
+category = "settings"
+title = "Prevent winedbg after unhandled exceptions"
+description = "Prevent winedbg after unhandled exceptions in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\AeDebug]
+"Debugger"="false"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "autostart_winedbg=disabled"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "iceweasel"
+category = "apps"
+title = "GNU Icecat 31.7.0"
+publisher = "GNU Foundation"
+year = "2015"
+description = "Install GNU Icecat 31.7.0 in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "iceweasel"

@@ -1,0 +1,17 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "remove_mono"
+category = "settings"
+title = "Remove builtin wine-mono"
+description = "Uninstall all known Wine Mono package variants and remove their generated runtime shims."
+media = "none"
+maturity = "native"
+tags = ["mono", "runtime", "cleanup"]
+
+[[steps]]
+type = "native_action"
+action = "remove_mono"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "remove_mono"

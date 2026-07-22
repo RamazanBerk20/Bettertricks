@@ -1,0 +1,67 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "georgia"
+category = "fonts"
+title = "MS Georgia fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Georgia fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "georgi32.exe"
+cache_path = "corefonts/georgi32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/georgi32.exe"]
+sha256 = "2c2c7dcda6606ea5cf08918fb7cd3f3359e9e84338dc690013f20cd42e930301"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/georgiaz.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/georgia"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/georgia"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/georgia"
+fonts = [{ source = "georgiab.ttf", filename = "georgiab.ttf", display_name = "Georgia Bold" }, { source = "georgiai.ttf", filename = "georgiai.ttf", display_name = "Georgia Italic" }, { source = "georgia.ttf", filename = "georgia.ttf", display_name = "Georgia" }, { source = "georgiaz.ttf", filename = "georgiaz.ttf", display_name = "Georgia Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/georgiab.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/georgiai.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/georgia.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/georgiaz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "georgia"

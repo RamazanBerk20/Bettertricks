@@ -1,0 +1,17 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "fontfix"
+category = "settings"
+title = "Check for broken host fonts"
+description = "Detect the Samyak/Oriya X11 font known to crash some .NET applications."
+media = "none"
+maturity = "native"
+tags = ["fonts", "diagnostics"]
+
+[[steps]]
+type = "native_action"
+action = "fontfix_check"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "fontfix"

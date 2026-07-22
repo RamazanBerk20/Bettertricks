@@ -1,0 +1,20 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "win31"
+category = "settings"
+title = "Set Windows version to Windows 3.1"
+description = "Report Windows 3.1 to applications in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["windows version", "compatibility"]
+
+[constraints]
+architectures = ["win32"]
+
+[[steps]]
+type = "windows_version"
+version = "win31"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "win31"

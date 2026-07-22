@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "orm=fbo"
+category = "settings"
+title = "Set OffscreenRenderingMode to fbo"
+description = "Set OffscreenRenderingMode to fbo in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Direct3D]
+"OffscreenRenderingMode"="fbo"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "orm=fbo"

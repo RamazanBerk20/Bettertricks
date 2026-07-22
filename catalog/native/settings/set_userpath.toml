@@ -1,0 +1,25 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "set_userpath"
+category = "settings"
+title = "Set the Wine user PATH"
+description = "Convert semicolon-separated native or Wine paths and store them as the prefix user's PATH."
+media = "none"
+maturity = "native"
+tags = ["environment", "path", "registry"]
+
+[[inputs]]
+id = "paths"
+label = "User PATH entries"
+description = "Native and/or Wine paths separated with semicolons. The WINEPATH environment variable is used when available."
+placeholder = "/opt/tool/bin;C:\\Program Files\\Tool"
+environment = "WINEPATH"
+required = true
+
+[[steps]]
+type = "native_action"
+action = "set_user_path"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "set_userpath"

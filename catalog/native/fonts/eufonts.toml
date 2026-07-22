@@ -1,0 +1,127 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "eufonts"
+category = "fonts"
+title = "Updated fonts for Romanian and Bulgarian"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Updated fonts for Romanian and Bulgarian in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "EUupdate.EXE"
+cache_path = "eufonts/EUupdate.EXE"
+urls = ["https://sourceforge.net/projects/mscorefonts2/files/cabs/EUupdate.EXE"]
+sha256 = "464dd2cd5f09f489f9ac86ea7790b7b8548fc4e46d9f889b68d2cdce47e09ea8"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/verdanaz.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/eufonts"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "cabinet"
+include = []
+destination = "${temp}/eufonts"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/eufonts"
+fonts = [{ source = "arialbd.ttf", filename = "arialbd.ttf", display_name = "Arial Bold" }, { source = "arialbi.ttf", filename = "arialbi.ttf", display_name = "Arial Bold Italic" }, { source = "ariali.ttf", filename = "ariali.ttf", display_name = "Arial Italic" }, { source = "arial.ttf", filename = "arial.ttf", display_name = "Arial" }, { source = "timesbd.ttf", filename = "timesbd.ttf", display_name = "Times New Roman Bold" }, { source = "timesbi.ttf", filename = "timesbi.ttf", display_name = "Times New Roman Bold Italic" }, { source = "timesi.ttf", filename = "timesi.ttf", display_name = "Times New Roman Italic" }, { source = "times.ttf", filename = "times.ttf", display_name = "Times New Roman" }, { source = "trebucbd.ttf", filename = "trebucbd.ttf", display_name = "Trebuchet MS Bold" }, { source = "trebucbi.ttf", filename = "trebucbi.ttf", display_name = "Trebuchet MS Bold Italic" }, { source = "trebucit.ttf", filename = "trebucit.ttf", display_name = "Trebuchet MS Italic" }, { source = "trebuc.ttf", filename = "trebuc.ttf", display_name = "Trebuchet MS" }, { source = "verdanab.ttf", filename = "verdanab.ttf", display_name = "Verdana Bold" }, { source = "verdanai.ttf", filename = "verdanai.ttf", display_name = "Verdana Italian" }, { source = "verdana.ttf", filename = "verdana.ttf", display_name = "Verdana" }, { source = "verdanaz.ttf", filename = "verdanaz.ttf", display_name = "Verdana Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/arialbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/arialbi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ariali.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/arial.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/timesbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/timesbi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/timesi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/times.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebucbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebucbi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebucit.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebuc.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdanab.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdanai.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdana.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdanaz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "eufonts"

@@ -1,0 +1,59 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "theme=light"
+category = "settings"
+title = "Use default Wine theme for the prefix"
+description = "Use default Wine theme for the prefix."
+media = "none"
+maturity = "native"
+tags = ["theme", "appearance"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Control Panel\Colors]
+"ActiveBorder"=-
+"ActiveTitle"=-
+"AppWorkSpace"=-
+"Background"=-
+"ButtonAlternativeFace"=-
+"ButtonDkShadow"=-
+"ButtonFace"=-
+"ButtonHilight"=-
+"ButtonLight"=-
+"ButtonShadow"=-
+"ButtonText"=-
+"GradientActiveTitle"=-
+"GradientInactiveTitle"=-
+"GrayText"=-
+"Hilight"=-
+"HilightText"=-
+"InactiveBorder"=-
+"InactiveTitle"=-
+"InactiveTitleText"=-
+"InfoText"=-
+"InfoWindow"=-
+"Menu"=-
+"MenuBar"=-
+"MenuHilight"=-
+"MenuText"=-
+"Scrollbar"=-
+"TitleText"=-
+"Window"=-
+"WindowFrame"=-
+"WindowText"=-
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\ThemeManager]
+"ColorName"=-
+"DllName"=-
+"LoadedBefore"=-
+"SizeName"=-
+"ThemeActive"=-
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize]
+"AppsUseLightTheme"=dword:00000001
+"SystemUsesLightTheme"=dword:00000001'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "theme=light"

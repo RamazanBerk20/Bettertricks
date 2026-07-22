@@ -1,0 +1,57 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "vlgothic"
+category = "fonts"
+title = "VLGothic Japanese fonts"
+publisher = "Project Vine / Daisuke Suzuki"
+year = "2014"
+description = "Install and register VLGothic Japanese fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "VLGothic-20141206.tar.xz"
+cache_path = "vlgothic/VLGothic-20141206.tar.xz"
+urls = ["https://mirrors.gigenet.com/OSDN/vlgothic/62375/VLGothic-20141206.tar.xz"]
+sha256 = "982040db2f9cb73d7c6ab7d9d163f2ed46d1180f330c9ba2fae303649bf8102d"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/vl-pgothic-regular.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/vlgothic"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "tar_xz"
+include = []
+destination = "${temp}/vlgothic"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/vlgothic/VLGothic"
+fonts = [{ source = "vl-gothic-regular.ttf", filename = "vl-gothic-regular.ttf", display_name = "VL Gothic" }, { source = "vl-pgothic-regular.ttf", filename = "vl-pgothic-regular.ttf", display_name = "VL PGothic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/vl-gothic-regular.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/vl-pgothic-regular.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "vlgothic"

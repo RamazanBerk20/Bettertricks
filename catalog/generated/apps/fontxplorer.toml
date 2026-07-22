@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "fontxplorer"
+category = "apps"
+title = "Font Xplorer 1.2.2"
+publisher = "Moon Software"
+year = "2001"
+description = "Install Font Xplorer 1.2.2 in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "fontxplorer"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "directshow"
+category = "dlls"
+title = "DirectShow runtime DLLs (amstream, qasf, qcap, qdvd, qedit, quartz)"
+publisher = "Microsoft"
+year = "2011"
+description = "Install or configure DirectShow runtime DLLs (amstream, qasf, qcap, qdvd, qedit, quartz) for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "directshow"

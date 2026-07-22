@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.bettertricks.desktop</id>
+  <name>Bettertricks</name>
+  <developer id="io.github.ramazanberk20">
+    <name>Ramazan Berk Şirin</name>
+  </developer>
+  <summary>Manage Wine prefixes with Winetricks-compatible recipes</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LGPL-2.1-or-later</project_license>
+  <description>
+    <p>
+      Bettertricks is a recovery-first Wine prefix manager with operation previews, restore points,
+      structured activity, and a native Winetricks-compatible recipe engine.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.bettertricks.desktop.desktop</launchable>
+  <url type="homepage">https://github.com/RamazanBerk20/Bettertricks</url>
+  <url type="bugtracker">https://github.com/RamazanBerk20/Bettertricks/issues</url>
+  <provides>
+    <binary>bettertricks-desktop</binary>
+    <binary>bettertricks</binary>
+  </provides>
+  <releases>
+    <release version="1.0" date="2026-07-23"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

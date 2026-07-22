@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libayatana-appindicator3-dev \
+            libarchive-tools \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            cabextract \
+            patchelf \
+            p7zip-full \
+            rpm \
+            unzip \
+            wine64 \
+            xauth \
+            xz-utils \
+            xvfb \
+            zstd
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read application version
+        run: echo "BETTERTRICKS_VERSION=$(node -p \"require('./apps/desktop/src-tauri/tauri.conf.json').version\")" >> "$GITHUB_ENV"
+
+      - name: Install pinned Winetricks compatibility host
+        run: |
+          sudo curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/Winetricks/winetricks/20260125/src/winetricks \
+            --output /usr/local/bin/winetricks
+          echo "431f82fc74000e6c864409f1d8fb495d696c03928808e3e8acffc45179312a7b  /usr/local/bin/winetricks" \
+            | sha256sum --check --strict
+          sudo chmod 0755 /usr/local/bin/winetricks
+
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lint Rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Validate catalog
+        run: pnpm catalog:validate
+
+      - name: Run test suites
+        run: pnpm test
+
+      - name: Exercise signed catalog publication and rollback
+        run: pnpm smoke:catalog-update
+
+      - name: Exercise managed compatibility-host installation
+        run: pnpm smoke:compatibility-host
+
+      - name: Smoke-test native settings in Wine
+        run: xvfb-run -a pnpm smoke:wine
+
+      - name: Cache pinned Proton runtime
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/bettertricks-proton
+          key: ge-proton11-1-linux-x86-64
+
+      - name: Smoke-test native settings in Proton
+        env:
+          BETTERTRICKS_PROTON_CACHE: ${{ runner.temp }}/bettertricks-proton
+        run: xvfb-run -a pnpm smoke:proton
+
+      - name: Build web frontend
+        run: pnpm build:web
+
+      - name: Build Linux packages
+        env:
+          NO_STRIP: "1"
+        run: pnpm --filter @bettertricks/desktop exec tauri build --ci
+
+      - name: Smoke-test package contents
+        run: >-
+          bash scripts/smoke-linux-packages.sh
+          target/release/bundle/deb/Bettertricks_${BETTERTRICKS_VERSION}_amd64.deb
+          target/release/bundle/rpm/Bettertricks-${BETTERTRICKS_VERSION}-1.x86_64.rpm
+          target/release/bundle/appimage/Bettertricks_${BETTERTRICKS_VERSION}_amd64.AppImage
+
+      - name: Install packages on clean Linux systems
+        run: >-
+          bash scripts/smoke-clean-linux-packages.sh
+          target/release/bundle/deb/Bettertricks_${BETTERTRICKS_VERSION}_amd64.deb
+          target/release/bundle/rpm/Bettertricks-${BETTERTRICKS_VERSION}-1.x86_64.rpm
+          target/release/bundle/appimage/Bettertricks_${BETTERTRICKS_VERSION}_amd64.AppImage
+
+      - name: Generate and verify release checksums
+        run: pnpm release:checksums
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: bettertricks-linux-x86_64
+          path: |
+            target/release/publish/*
+          if-no-files-found: error

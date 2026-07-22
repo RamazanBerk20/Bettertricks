@@ -1,0 +1,22 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "mackeyremap=none"
+category = "settings"
+title = "Disable Mac key remapping"
+description = "Disable Mac key remapping in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["keyboard", "macos"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Mac Driver]
+"LeftCommandIsCtrl"="n"
+"LeftOptionIsAlt"="n"
+"RightCommandIsCtrl"="n"
+"RightOptionIsAlt"="n"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mackeyremap=none"

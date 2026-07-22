@@ -1,0 +1,67 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "times"
+category = "fonts"
+title = "MS Times fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Times fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "times32.exe"
+cache_path = "corefonts/times32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/times32.exe"]
+sha256 = "db56595ec6ef5d3de5c24994f001f03b2a13e37cee27bc25c58f6f43e8f807ab"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/times.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/times"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/times"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/times"
+fonts = [{ source = "timesbd.ttf", filename = "timesbd.ttf", display_name = "Times New Roman Bold" }, { source = "timesbi.ttf", filename = "timesbi.ttf", display_name = "Times New Roman Bold Italic" }, { source = "timesi.ttf", filename = "timesi.ttf", display_name = "Times New Roman Italic" }, { source = "times.ttf", filename = "times.ttf", display_name = "Times New Roman" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/timesbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/timesbi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/timesi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/times.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "times"

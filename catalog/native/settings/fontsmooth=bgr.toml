@@ -1,0 +1,18 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "fontsmooth=bgr"
+category = "settings"
+title = "Enable BGR subpixel font smoothing"
+description = "Enable BGR subpixel font smoothing in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["fonts", "display"]
+
+[[steps]]
+type = "native_action"
+action = "font_smoothing"
+parameters = { smoothing = "2", orientation = "0", smoothing_type = "2" }
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "fontsmooth=bgr"

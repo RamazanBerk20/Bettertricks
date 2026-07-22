@@ -1,0 +1,25 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "hosts"
+category = "settings"
+title = "Add Windows hosts and services files"
+description = "Create missing Windows hosts and services files without replacing existing content."
+media = "none"
+maturity = "native"
+tags = ["networking", "compatibility"]
+
+[[steps]]
+type = "ensure_directory"
+path = "${system32}/drivers/etc"
+
+[[steps]]
+type = "ensure_file"
+path = "${system32}/drivers/etc/hosts"
+
+[[steps]]
+type = "ensure_file"
+path = "${system32}/drivers/etc/services"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "hosts"

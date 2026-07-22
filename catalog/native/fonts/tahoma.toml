@@ -1,0 +1,57 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "tahoma"
+category = "fonts"
+title = "MS Tahoma font (not part of corefonts)"
+publisher = "Microsoft"
+year = "1999"
+description = "Install and register MS Tahoma font (not part of corefonts) in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "IELPKTH.CAB"
+cache_path = "tahoma/IELPKTH.CAB"
+urls = ["https://downloads.sourceforge.net/corefonts/OldFiles/IELPKTH.CAB"]
+sha256 = "c1be3fb8f0042570be76ec6daa03a99142c88367c1bc810240b85827c715961a"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/tahomabd.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/tahoma"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "cabinet"
+include = ["*.TTF"]
+destination = "${temp}/tahoma"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/tahoma"
+fonts = [{ source = "tahoma.ttf", filename = "tahoma.ttf", display_name = "Tahoma" }, { source = "tahomabd.ttf", filename = "tahomabd.ttf", display_name = "Tahoma Bold" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/tahoma.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/tahomabd.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "tahoma"

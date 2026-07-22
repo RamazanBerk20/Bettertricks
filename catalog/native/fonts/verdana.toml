@@ -1,0 +1,67 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "verdana"
+category = "fonts"
+title = "MS Verdana fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Verdana fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "verdan32.exe"
+cache_path = "corefonts/verdan32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/verdan32.exe"]
+sha256 = "c1cb61255e363166794e47664e2f21af8e3a26cb6346eb8d2ae2fa85dd5aad96"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/verdanaz.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/verdana"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/verdana"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/verdana"
+fonts = [{ source = "verdanab.ttf", filename = "verdanab.ttf", display_name = "Verdana Bold" }, { source = "verdanai.ttf", filename = "verdanai.ttf", display_name = "Verdana Italic" }, { source = "verdana.ttf", filename = "verdana.ttf", display_name = "Verdana" }, { source = "verdanaz.ttf", filename = "verdanaz.ttf", display_name = "Verdana Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdanab.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdanai.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdana.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/verdanaz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "verdana"

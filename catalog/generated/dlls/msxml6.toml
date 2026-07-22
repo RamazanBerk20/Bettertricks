@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "msxml6"
+category = "dlls"
+title = "MS XML Core Services 6.0 sp2"
+publisher = "Microsoft"
+year = "2014"
+description = "Install or configure MS XML Core Services 6.0 sp2 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "msxml6"

@@ -1,0 +1,45 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "unifont"
+category = "fonts"
+title = "Unifont alternative to Arial Unicode MS"
+publisher = "Roman Czyborra / GNU"
+year = "2021"
+description = "Install and register Unifont alternative to Arial Unicode MS in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "font"
+filename = "unifont-13.0.06.ttf"
+cache_path = "unifont/unifont-13.0.06.ttf"
+urls = ["https://unifoundry.com/pub/unifont/unifont-13.0.06/font-builds/unifont-13.0.06.ttf"]
+sha256 = "d73c0425811ffd366b0d1973e9338bac26fe7cf085760a12e10c61241915e742"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/unifont.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "font"
+
+[[steps]]
+type = "install_fonts"
+source = "${cache}/unifont"
+fonts = [{ source = "unifont-13.0.06.ttf", filename = "unifont.ttf", display_name = "Unifont" }]
+
+[[steps]]
+type = "font_replacements"
+replacements = [{ alias = "Arial Unicode MS", replacement = "Unifont" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/unifont.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "unifont"

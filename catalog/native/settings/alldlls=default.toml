@@ -1,0 +1,18 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "alldlls=default"
+category = "settings"
+title = "Remove all DLL overrides"
+description = "Remove every global DLL override from the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["dll override", "reset"]
+
+[[steps]]
+type = "registry"
+content = '''[-HKEY_CURRENT_USER\Software\Wine\DllOverrides]'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "alldlls=default"

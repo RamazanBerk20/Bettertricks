@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "l3codecx"
+category = "dlls"
+title = "MPEG Layer-3 Audio Codec for Microsoft DirectShow"
+publisher = "Microsoft"
+year = "2010"
+description = "Install or configure MPEG Layer-3 Audio Codec for Microsoft DirectShow for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "l3codecx"

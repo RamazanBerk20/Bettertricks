@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "shader_backend=glsl"
+category = "settings"
+title = "Set shader backend to glsl"
+description = "Set shader backend to glsl in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Direct3D]
+"shader_backend"="glsl"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "shader_backend=glsl"

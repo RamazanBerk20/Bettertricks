@@ -1,0 +1,74 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "cambria"
+category = "fonts"
+title = "MS Cambria font"
+publisher = "Microsoft"
+year = "2009"
+description = "Install and register Microsoft Cambria font from the pinned PowerPoint Viewer archive."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "PowerPointViewer.exe"
+cache_path = "PowerPointViewer/PowerPointViewer.exe"
+urls = ["https://web.archive.org/web/20171225132744if_/https://download.microsoft.com/download/E/6/7/E675FFFC-2A6D-4AB0-B3EB-27C9F8C8F696/PowerPointViewer.exe"]
+sha256 = "249473568eba7a1e4f95498acba594e0f42e6581add4dead70c1dfb908a09423"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/cambria.ttc"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/cambria"
+
+[[steps]]
+type = "extract"
+file = "archive"
+destination = "${temp}/cambria"
+format = "cabinet"
+include = ["ppviewer.cab"]
+
+[[steps]]
+type = "extract_path"
+source = "${temp}/cambria/ppviewer.cab"
+destination = "${temp}/cambria"
+format = "cabinet"
+include = ["CAMBRIA.TTC", "CAMBRIAB.TTF", "CAMBRIAI.TTF", "CAMBRIAZ.TTF"]
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/cambria"
+fonts = [{ source = "CAMBRIA.TTC", filename = "cambria.ttc", display_name = "Cambria & Cambria Math" }, { source = "CAMBRIAB.TTF", filename = "cambriab.ttf", display_name = "Cambria Bold" }, { source = "CAMBRIAI.TTF", filename = "cambriai.ttf", display_name = "Cambria Italic" }, { source = "CAMBRIAZ.TTF", filename = "cambriaz.ttf", display_name = "Cambria Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/cambria.ttc"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/cambriab.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/cambriai.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/cambriaz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "cambria"

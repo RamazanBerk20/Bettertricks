@@ -1,0 +1,117 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "uff"
+category = "fonts"
+title = "Ubuntu Font Family"
+publisher = "Ubuntu"
+year = "2010"
+description = "Install and register Ubuntu Font Family in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "ubuntu-font-family-0.83.zip"
+cache_path = "uff/ubuntu-font-family-0.83.zip"
+urls = ["https://assets.ubuntu.com/v1/fad7939b-ubuntu-font-family-0.83.zip"]
+sha256 = "456d7d42797febd0d7d4cf1b782a2e03680bb4a5ee43cc9d06bda172bac05b42"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/ubuntu-r.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/uff"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "zip"
+include = []
+destination = "${temp}/uff"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/uff/ubuntu-font-family-0.83"
+fonts = [{ source = "ubuntu-bi.ttf", filename = "ubuntu-bi.ttf", display_name = "Ubuntu Bold Italic" }, { source = "ubuntu-b.ttf", filename = "ubuntu-b.ttf", display_name = "Ubuntu Bold" }, { source = "ubuntu-c.ttf", filename = "ubuntu-c.ttf", display_name = "Ubuntu Condensed" }, { source = "ubuntu-i.ttf", filename = "ubuntu-i.ttf", display_name = "Ubuntu Italic" }, { source = "ubuntu-li.ttf", filename = "ubuntu-li.ttf", display_name = "Ubuntu Light Italic" }, { source = "ubuntu-l.ttf", filename = "ubuntu-l.ttf", display_name = "Ubuntu Light" }, { source = "ubuntu-mi.ttf", filename = "ubuntu-mi.ttf", display_name = "Ubuntu Medium Italic" }, { source = "ubuntumono-bi.ttf", filename = "ubuntumono-bi.ttf", display_name = "Ubuntu Mono Bold Italic" }, { source = "ubuntumono-b.ttf", filename = "ubuntumono-b.ttf", display_name = "Ubuntu Mono Bold" }, { source = "ubuntumono-ri.ttf", filename = "ubuntumono-ri.ttf", display_name = "Ubuntu Mono Italic" }, { source = "ubuntumono-r.ttf", filename = "ubuntumono-r.ttf", display_name = "Ubuntu Mono" }, { source = "ubuntu-m.ttf", filename = "ubuntu-m.ttf", display_name = "Ubuntu Medium" }, { source = "ubuntu-ri.ttf", filename = "ubuntu-ri.ttf", display_name = "Ubuntu Italic" }, { source = "ubuntu-r.ttf", filename = "ubuntu-r.ttf", display_name = "Ubuntu" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-bi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-b.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-c.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-i.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-li.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-l.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-mi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntumono-bi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntumono-b.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntumono-ri.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntumono-r.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-m.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-ri.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ubuntu-r.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "uff"

@@ -1,0 +1,16 @@
+schema = 1
+id = "good"
+category = "settings"
+title = "Successful test verb"
+description = "A no-op verb used by the compatibility test suite."
+media = "none"
+maturity = "native"
+tags = ["test"]
+
+[[steps]]
+type = "native_action"
+action = "noop"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "good"

@@ -1,0 +1,52 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "wenquanyi"
+category = "fonts"
+title = "WenQuanYi CJK font"
+publisher = "wenq.org"
+year = "2009"
+description = "Install and register WenQuanYi CJK font in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "wqy-microhei-0.2.0-beta.tar.gz"
+cache_path = "wenquanyi/wqy-microhei-0.2.0-beta.tar.gz"
+urls = ["https://downloads.sourceforge.net/wqy/wqy-microhei-0.2.0-beta.tar.gz"]
+sha256 = "2802ac8023aa36a66ea6e7445854e3a078d377ffff42169341bd237871f7213e"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/wqy-microhei.ttc"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/wenquanyi"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "tar_gz"
+include = []
+destination = "${temp}/wenquanyi"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/wenquanyi/wqy-microhei"
+fonts = [{ source = "wqy-microhei.ttc", filename = "wqy-microhei.ttc", display_name = "WenQuanYi Micro Hei" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/wqy-microhei.ttc"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "wenquanyi"

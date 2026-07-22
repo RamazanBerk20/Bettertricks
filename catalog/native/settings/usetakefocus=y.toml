@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "usetakefocus=y"
+category = "settings"
+title = "Enable UseTakeFocus"
+description = "Enable UseTakeFocus in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\X11 Driver]
+"UseTakeFocus"="Y"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "usetakefocus=y"

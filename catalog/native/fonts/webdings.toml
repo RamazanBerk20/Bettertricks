@@ -1,0 +1,52 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "webdings"
+category = "fonts"
+title = "MS Webdings fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Webdings fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "webdin32.exe"
+cache_path = "corefonts/webdin32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/webdin32.exe"]
+sha256 = "64595b5abc1080fba8610c5c34fab5863408e806aafe84653ca8575bed17d75a"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/webdings.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/webdings"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/webdings"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/webdings"
+fonts = [{ source = "webdings.ttf", filename = "webdings.ttf", display_name = "Webdings" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/webdings.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "webdings"

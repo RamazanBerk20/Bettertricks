@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "mdac28"
+category = "dlls"
+title = "Microsoft Data Access Components 2.8 sp1"
+publisher = "Microsoft"
+year = "2005"
+description = "Install or configure Microsoft Data Access Components 2.8 sp1 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mdac28"

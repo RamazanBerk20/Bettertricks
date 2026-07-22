@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "nocrashdialog"
+category = "settings"
+title = "Disable Wine's crash dialog"
+description = "Disable Wine's crash dialog in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\WineDbg]
+"ShowCrashDialog"=dword:00000000'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "nocrashdialog"

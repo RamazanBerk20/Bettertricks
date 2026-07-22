@@ -1,0 +1,67 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "baekmuk"
+category = "fonts"
+title = "Baekmuk Korean fonts"
+publisher = "Wooderart Inc. / kldp.net"
+year = "1999"
+description = "Install and register Baekmuk Korean fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "fonts-baekmuk_2.2.orig.tar.gz"
+cache_path = "baekmuk/fonts-baekmuk_2.2.orig.tar.gz"
+urls = ["https://deb.debian.org/debian/pool/main/f/fonts-baekmuk/fonts-baekmuk_2.2.orig.tar.gz"]
+sha256 = "08ab7dffb55d5887cc942ce370f5e33b756a55fbb4eaf0b90f244070e8d51882"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/hline.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/baekmuk"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "tar_gz"
+include = ["baekmuk-ttf-2.2/ttf"]
+destination = "${temp}/baekmuk"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/baekmuk/baekmuk-ttf-2.2/ttf"
+fonts = [{ source = "batang.ttf", filename = "batang.ttf", display_name = "Baekmuk Batang" }, { source = "gulim.ttf", filename = "gulim.ttf", display_name = "Baekmuk Gulim" }, { source = "dotum.ttf", filename = "dotum.ttf", display_name = "Baekmuk Dotum" }, { source = "hline.ttf", filename = "hline.ttf", display_name = "Baekmuk Headline" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/batang.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/gulim.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/dotum.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/hline.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "baekmuk"

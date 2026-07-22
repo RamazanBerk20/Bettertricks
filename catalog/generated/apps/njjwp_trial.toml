@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "njjwp_trial"
+category = "apps"
+title = "NJStar Japanese Word Processor trial"
+publisher = "NJStar"
+year = "2009"
+description = "Install NJStar Japanese Word Processor trial in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "njjwp_trial"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "cabinet"
+category = "dlls"
+title = "Microsoft cabinet.dll"
+publisher = "Microsoft"
+year = "2002"
+description = "Install or configure Microsoft cabinet.dll for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "cabinet"

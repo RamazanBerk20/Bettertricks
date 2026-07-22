@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "version": "winetricks-20260125",
+  "upstreamTag": "20260125",
+  "generatedAt": "2026-01-25T00:00:00.000Z",
+  "generatedRecipes": 391,
+  "nativeRecipes": 159,
+  "categories": {
+    "apps": 59,
+    "benchmarks": 8,
+    "dlls": 323,
+    "fonts": 42,
+    "settings": 118
+  }
+}

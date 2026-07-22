@@ -1,0 +1,29 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "corefonts"
+category = "fonts"
+title = "MS Arial, Courier, Times fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install the complete Microsoft core-font collection used by upstream Winetricks."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+dependencies = ["andale", "arial", "comicsans", "courier", "georgia", "impact", "times", "trebuchet", "verdana", "webdings"]
+
+[[detect]]
+path = "${windows}/Fonts/corefonts.installed"
+kind = "file"
+
+[[steps]]
+type = "ensure_file"
+path = "${windows}/Fonts/corefonts.installed"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/corefonts.installed"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "corefonts"

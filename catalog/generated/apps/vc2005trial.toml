@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "vc2005trial"
+category = "apps"
+title = "MS Visual C++ 2005 Trial"
+publisher = "Microsoft"
+year = "2005"
+description = "Install MS Visual C++ 2005 Trial in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "vc2005trial"

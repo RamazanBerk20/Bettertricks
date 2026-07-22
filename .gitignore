@@ -1,0 +1,14 @@
+/target
+node_modules/
+/.pnpm-store
+/apps/desktop/dist
+/apps/desktop/src-tauri/gen
+*.tsbuildinfo
+/.idea
+/.vscode
+*.log
+*.swp
+.DS_Store
+.env
+.env.*
+!.env.example

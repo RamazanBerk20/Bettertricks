@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Bettertricks
+Comment=A modern Wine prefix and recipe manager
+Exec=bettertricks-desktop
+Icon=bettertricks-desktop
+Categories=Utility;
+Terminal=false
+StartupWMClass=bettertricks-desktop
+Keywords=Wine;Winetricks;Proton;Steam;Prefix;

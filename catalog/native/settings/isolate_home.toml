@@ -1,0 +1,17 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "isolate_home"
+category = "settings"
+title = "Remove wineprefix links to $HOME"
+description = "Replace Wine user-directory links into the host home directory with empty prefix-local directories."
+media = "none"
+maturity = "native"
+tags = ["sandbox", "privacy", "filesystem"]
+
+[[steps]]
+type = "native_action"
+action = "isolate_home"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "isolate_home"

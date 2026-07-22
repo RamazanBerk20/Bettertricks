@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "emu8086"
+category = "apps"
+title = "emu8086"
+publisher = "emu8086.com"
+year = "2015"
+description = "Install emu8086 in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "emu8086"

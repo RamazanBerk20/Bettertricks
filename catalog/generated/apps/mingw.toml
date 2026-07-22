@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "mingw"
+category = "apps"
+title = "Minimalist GNU for Windows, including GCC for Windows"
+publisher = "GNU"
+year = "2013"
+description = "Install Minimalist GNU for Windows, including GCC for Windows in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mingw"

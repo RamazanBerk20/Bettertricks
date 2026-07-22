@@ -1,0 +1,14 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "mt4"
+category = "apps"
+title = "Meta Trader 4"
+year = "2005"
+description = "Install Meta Trader 4 in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mt4"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "d3dx9_26"
+category = "dlls"
+title = "MS d3dx9_26.dll"
+publisher = "Microsoft"
+year = "2010"
+description = "Install or configure MS d3dx9_26.dll for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "d3dx9_26"

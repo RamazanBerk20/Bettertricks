@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "filever"
+category = "dlls"
+title = "Microsoft's filever, for dumping file version info"
+publisher = "Microsoft"
+year = "20??"
+description = "Install or configure Microsoft's filever, for dumping file version info for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "filever"

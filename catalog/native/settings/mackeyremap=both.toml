@@ -1,0 +1,22 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "mackeyremap=both"
+category = "settings"
+title = "Enable Mac key remapping for both sides"
+description = "Enable Mac key remapping for both sides in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["keyboard", "macos"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Mac Driver]
+"LeftCommandIsCtrl"="y"
+"LeftOptionIsAlt"="y"
+"RightCommandIsCtrl"="y"
+"RightOptionIsAlt"="y"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mackeyremap=both"

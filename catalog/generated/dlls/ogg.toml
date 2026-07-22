@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "ogg"
+category = "dlls"
+title = "OpenCodecs 0.85: FLAC, Speex, Theora, Vorbis, WebM"
+publisher = "Xiph.Org Foundation"
+year = "2011"
+description = "Install or configure OpenCodecs 0.85: FLAC, Speex, Theora, Vorbis, WebM for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "ogg"

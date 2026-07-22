@@ -1,0 +1,20 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "fakejapanese"
+category = "fonts"
+title = "Creates aliases for Japanese fonts using Source Han Sans fonts"
+publisher = "Adobe"
+year = "2019"
+description = "Creates aliases for Japanese fonts using Source Han Sans fonts, matching the pinned Winetricks replacement table."
+media = "none"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+dependencies = ["sourcehansans"]
+
+[[steps]]
+type = "font_replacements"
+replacements = [{ alias = "Meiryo", replacement = "Source Han Sans" }, { alias = "Meiryo UI", replacement = "Source Han Sans" }, { alias = "MS Gothic", replacement = "Source Han Sans" }, { alias = "MS PGothic", replacement = "Source Han Sans" }, { alias = "MS Mincho", replacement = "Source Han Sans" }, { alias = "MS PMincho", replacement = "Source Han Sans" }, { alias = "MS UI Gothic", replacement = "Source Han Sans" }, { alias = "UD Digi KyoKasho N-R", replacement = "Source Han Sans" }, { alias = "UD Digi KyoKasho NK-R", replacement = "Source Han Sans" }, { alias = "UD Digi KyoKasho NP-R", replacement = "Source Han Sans" }, { alias = "Yu Gothic", replacement = "Source Han Sans" }, { alias = "Yu Gothic UI", replacement = "Source Han Sans" }, { alias = "Yu Mincho", replacement = "Source Han Sans" }, { alias = "メイリオ", replacement = "Source Han Sans" }, { alias = "ＭＳ ゴシック", replacement = "Source Han Sans" }, { alias = "ＭＳ Ｐゴシック", replacement = "Source Han Sans" }, { alias = "ＭＳ 明朝", replacement = "Source Han Sans" }, { alias = "ＭＳ Ｐ明朝", replacement = "Source Han Sans" }]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "fakejapanese"

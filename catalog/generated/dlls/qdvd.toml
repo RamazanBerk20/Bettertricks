@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "qdvd"
+category = "dlls"
+title = "qdvd.dll"
+publisher = "Microsoft"
+year = "2011"
+description = "Install or configure qdvd.dll for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "qdvd"

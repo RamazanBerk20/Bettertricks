@@ -1,0 +1,41 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "opensymbol"
+category = "fonts"
+title = "OpenSymbol fonts (replacement for Wingdings)"
+publisher = "libreoffice.org"
+year = "2022"
+description = "Install and register OpenSymbol fonts (replacement for Wingdings) in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "font"
+filename = "opens___.ttf"
+cache_path = "opensymbol/opens___.ttf"
+urls = ["https://raw.githubusercontent.com/apache/openoffice/5f13fa00702a0abe48858d443bc306f5c5ba26d8/main/extras/source/truetype/symbol/opens___.ttf"]
+sha256 = "86f6a40ca61adfc5942fb4d2fc360ffba9abd972a7e21c1ee91e494299ff0cbc"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/opens___.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "font"
+
+[[steps]]
+type = "install_fonts"
+source = "${cache}/opensymbol"
+fonts = [{ source = "opens___.ttf", filename = "opens___.ttf", display_name = "OpenSymbol" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/opens___.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "opensymbol"

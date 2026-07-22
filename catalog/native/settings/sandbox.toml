@@ -1,0 +1,26 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "sandbox"
+category = "settings"
+title = "Sandbox the wineprefix - remove links to HOME"
+description = "Remove the Z: mapping, disable Wine's Unix folder namespace, and isolate Wine user directories from HOME."
+media = "none"
+maturity = "native"
+tags = ["sandbox", "privacy", "filesystem"]
+
+[[steps]]
+type = "remove_symlink"
+path = "${prefix}/dosdevices/z:"
+
+[[steps]]
+type = "registry"
+content = '''[-HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\Namespace\{9D20AAE8-0625-44B0-9CA7-71889C2254D9}]'''
+architecture = "prefix"
+
+[[steps]]
+type = "native_action"
+action = "isolate_home"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "sandbox"

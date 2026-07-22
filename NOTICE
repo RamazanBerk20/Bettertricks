@@ -1,0 +1,13 @@
+Bettertricks
+Copyright 2026 Bettertricks contributors
+
+This project is licensed under LGPL-2.1-or-later.
+
+The generated recipe catalog includes metadata derived from Winetricks, and native recipe
+translations reproduce selected Winetricks behavior. Winetricks is distributed under the
+GNU Lesser General Public License, version 2.1 or later. Each recipe records its upstream
+Winetricks tag and verb identifier.
+
+Bettertricks is an independent project and is not endorsed by the Wine or Winetricks
+projects. Wine, Winetricks, Steam, Proton, Lutris, Bottles, Heroic, and other names belong to
+their respective owners.

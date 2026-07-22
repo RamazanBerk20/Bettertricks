@@ -1,0 +1,52 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "sourcehansans"
+category = "fonts"
+title = "Source Han Sans fonts"
+publisher = "Adobe"
+year = "2021"
+description = "Install and register Source Han Sans fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "SourceHanSans.ttc.zip"
+cache_path = "sourcehansans/SourceHanSans.ttc.zip"
+urls = ["https://github.com/adobe-fonts/source-han-sans/releases/download/2.004R/SourceHanSans.ttc.zip"]
+sha256 = "6f59118a9adda5a7fe4e9e6bb538309f7e1d3c5411f9a9d32af32a79501b7e4f"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/sourcehansans.ttc"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/sourcehansans"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "zip"
+include = ["SourceHanSans.ttc"]
+destination = "${temp}/sourcehansans"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/sourcehansans"
+fonts = [{ source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans SC ExtraLight" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans SC Light" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans SC Normal" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans SC" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans SC Medium" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans SC Bold" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans SC Heavy" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans TC ExtraLight" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans TC Light" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans TC Normal" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans TC" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans TC Medium" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans TC Bold" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans TC Heavy" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans ExtraLight" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans Light" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans Normal" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans Medium" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans Bold" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans Heavy" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans K ExtraLight" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans K Light" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans K Normal" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans K" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans K Medium" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans K Bold" }, { source = "SourceHanSans.ttc", filename = "sourcehansans.ttc", display_name = "Source Han Sans K Heavy" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/sourcehansans.ttc"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "sourcehansans"

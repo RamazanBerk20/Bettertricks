@@ -1,0 +1,20 @@
+schema = 1
+id = "directx9"
+category = "dlls"
+title = "MS DirectX 9 (Deprecated, no-op)"
+publisher = "Microsoft"
+year = "2010"
+description = "Keep the deprecated Winetricks compatibility verb as a no-op and direct users to the individual DirectX components they actually need."
+media = "download"
+maturity = "native"
+tags = ["downloadable", "deprecated", "compatibility"]
+
+[[steps]]
+type = "notice"
+level = "warning"
+title = "DirectX 9 is deprecated"
+message = "Install individual DirectX components such as d3dx9 instead. This compatibility verb intentionally makes no prefix changes."
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "directx9"

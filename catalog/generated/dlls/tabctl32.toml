@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "tabctl32"
+category = "dlls"
+title = "Microsoft Tabbed Dialog Control 6.0 (tabctl32.ocx)"
+publisher = "Microsoft"
+year = "2012"
+description = "Install or configure Microsoft Tabbed Dialog Control 6.0 (tabctl32.ocx) for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "tabctl32"

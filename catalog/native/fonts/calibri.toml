@@ -1,0 +1,74 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "calibri"
+category = "fonts"
+title = "MS Calibri font"
+publisher = "Microsoft"
+year = "2007"
+description = "Install and register Microsoft Calibri font from the pinned PowerPoint Viewer archive."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "PowerPointViewer.exe"
+cache_path = "PowerPointViewer/PowerPointViewer.exe"
+urls = ["https://web.archive.org/web/20171225132744if_/https://download.microsoft.com/download/E/6/7/E675FFFC-2A6D-4AB0-B3EB-27C9F8C8F696/PowerPointViewer.exe"]
+sha256 = "249473568eba7a1e4f95498acba594e0f42e6581add4dead70c1dfb908a09423"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/calibri.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/calibri"
+
+[[steps]]
+type = "extract"
+file = "archive"
+destination = "${temp}/calibri"
+format = "cabinet"
+include = ["ppviewer.cab"]
+
+[[steps]]
+type = "extract_path"
+source = "${temp}/calibri/ppviewer.cab"
+destination = "${temp}/calibri"
+format = "cabinet"
+include = ["CALIBRI.TTF", "CALIBRIB.TTF", "CALIBRII.TTF", "CALIBRIZ.TTF"]
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/calibri"
+fonts = [{ source = "CALIBRI.TTF", filename = "calibri.ttf", display_name = "Calibri" }, { source = "CALIBRIB.TTF", filename = "calibrib.ttf", display_name = "Calibri Bold" }, { source = "CALIBRII.TTF", filename = "calibrii.ttf", display_name = "Calibri Italic" }, { source = "CALIBRIZ.TTF", filename = "calibriz.ttf", display_name = "Calibri Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/calibri.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/calibrib.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/calibrii.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/calibriz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "calibri"

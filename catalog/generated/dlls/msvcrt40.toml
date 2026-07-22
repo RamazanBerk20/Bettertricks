@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "msvcrt40"
+category = "dlls"
+title = "MS Visual C++ Runtime Library Version 4.0"
+publisher = "Microsoft"
+year = "2011"
+description = "Install or configure MS Visual C++ Runtime Library Version 4.0 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "msvcrt40"

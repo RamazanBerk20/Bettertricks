@@ -1,0 +1,22 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "mackeyremap=left"
+category = "settings"
+title = "Enable Mac key remapping for the left side"
+description = "Enable Mac key remapping for the left side in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["keyboard", "macos"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Mac Driver]
+"LeftCommandIsCtrl"="y"
+"LeftOptionIsAlt"="y"
+"RightCommandIsCtrl"="n"
+"RightOptionIsAlt"="n"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mackeyremap=left"

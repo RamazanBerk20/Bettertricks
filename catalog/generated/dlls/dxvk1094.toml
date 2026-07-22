@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "dxvk1094"
+category = "dlls"
+title = "Vulkan-based D3D9/D3D10/D3D11 implementation for Linux / Wine (1.9.4)"
+publisher = "Philip Rebohle"
+year = "2017"
+description = "Install or configure Vulkan-based D3D9/D3D10/D3D11 implementation for Linux / Wine (1.9.4) for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "dxvk1094"

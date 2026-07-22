@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "mspaint"
+category = "apps"
+title = "MS Paint"
+publisher = "Microsoft"
+year = "2010"
+description = "Install MS Paint in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mspaint"

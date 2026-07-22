@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "d2gl"
+category = "dlls"
+title = "Diablo 2 LoD Glide to OpenGL Wrapper"
+publisher = "Bayaraa"
+year = "2023"
+description = "Install or configure Diablo 2 LoD Glide to OpenGL Wrapper for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "cached", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "d2gl"

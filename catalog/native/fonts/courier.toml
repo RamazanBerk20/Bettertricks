@@ -1,0 +1,67 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "courier"
+category = "fonts"
+title = "MS Courier fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Courier fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "courie32.exe"
+cache_path = "corefonts/courie32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/courie32.exe"]
+sha256 = "bb511d861655dde879ae552eb86b134d6fae67cb58502e6ff73ec5d9151f3384"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/cour.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/courier"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/courier"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/courier"
+fonts = [{ source = "courbd.ttf", filename = "courbd.ttf", display_name = "Courier New Bold" }, { source = "courbi.ttf", filename = "courbi.ttf", display_name = "Courier New Bold Italic" }, { source = "couri.ttf", filename = "couri.ttf", display_name = "Courier New Italic" }, { source = "cour.ttf", filename = "cour.ttf", display_name = "Courier New" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/courbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/courbi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/couri.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/cour.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "courier"

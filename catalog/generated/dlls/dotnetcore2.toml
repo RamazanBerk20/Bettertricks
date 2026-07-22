@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "dotnetcore2"
+category = "dlls"
+title = "MS .NET Core Runtime 2.1 LTS"
+publisher = "Microsoft"
+year = "2020"
+description = "Install or configure MS .NET Core Runtime 2.1 LTS for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "dotnetcore2"

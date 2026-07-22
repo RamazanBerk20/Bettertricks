@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "foobar2000"
+category = "apps"
+title = "foobar2000 v1.4"
+publisher = "Peter Pawlowski"
+year = "2018"
+description = "Install foobar2000 v1.4 in the selected Wine prefix."
+media = "manual_download"
+maturity = "metadata_only"
+tags = ["manual_download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "foobar2000"

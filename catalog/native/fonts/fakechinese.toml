@@ -1,0 +1,20 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "fakechinese"
+category = "fonts"
+title = "Creates aliases for Chinese fonts using Source Han Sans fonts"
+publisher = "Adobe"
+year = "2019"
+description = "Creates aliases for Chinese fonts using Source Han Sans fonts, matching the pinned Winetricks replacement table."
+media = "none"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+dependencies = ["sourcehansans"]
+
+[[steps]]
+type = "font_replacements"
+replacements = [{ alias = "Dengxian", replacement = "Source Han Sans SC" }, { alias = "FangSong", replacement = "Source Han Sans SC" }, { alias = "KaiTi", replacement = "Source Han Sans SC" }, { alias = "Microsoft YaHei", replacement = "Source Han Sans SC" }, { alias = "Microsoft YaHei UI", replacement = "Source Han Sans SC" }, { alias = "NSimSun", replacement = "Source Han Sans SC" }, { alias = "SimHei", replacement = "Source Han Sans SC" }, { alias = "SimKai", replacement = "Source Han Sans SC" }, { alias = "SimSun", replacement = "Source Han Sans SC" }, { alias = "SimSun-ExtB", replacement = "Source Han Sans SC" }, { alias = "DFKai-SB", replacement = "Source Han Sans TC" }, { alias = "Microsoft JhengHei", replacement = "Source Han Sans TC" }, { alias = "Microsoft JhengHei UI", replacement = "Source Han Sans TC" }, { alias = "MingLiU", replacement = "Source Han Sans TC" }, { alias = "PMingLiU", replacement = "Source Han Sans TC" }, { alias = "MingLiU-ExtB", replacement = "Source Han Sans TC" }, { alias = "PMingLiU-ExtB", replacement = "Source Han Sans TC" }]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "fakechinese"

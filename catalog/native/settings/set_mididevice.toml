@@ -1,0 +1,25 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "set_mididevice"
+category = "settings"
+title = "Set MIDImap device"
+description = "Set the Windows MIDI mapper to a device selected in Bettertricks or supplied through MIDI_DEVICE."
+media = "none"
+maturity = "native"
+tags = ["midi", "sound", "registry"]
+
+[[inputs]]
+id = "device"
+label = "MIDI device"
+description = "The exact Windows MIDI output device name."
+placeholder = "Microsoft GS Wavetable Synth"
+environment = "MIDI_DEVICE"
+required = true
+
+[[steps]]
+type = "native_action"
+action = "set_midi_device"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "set_mididevice"

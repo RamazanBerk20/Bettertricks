@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "grabfullscreen=n"
+category = "settings"
+title = "Disable cursor clipping for full-screen windows"
+description = "Disable cursor clipping for full-screen windows in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\X11 Driver]
+"GrabFullscreen"="n"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "grabfullscreen=n"

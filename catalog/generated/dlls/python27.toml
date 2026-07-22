@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "python27"
+category = "dlls"
+title = "Python interpreter 2.7.16"
+publisher = "Python Software Foundaton"
+year = "2019"
+description = "Install or configure Python interpreter 2.7.16 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "python27"

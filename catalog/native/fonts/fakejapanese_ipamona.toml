@@ -1,0 +1,20 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "fakejapanese_ipamona"
+category = "fonts"
+title = "Creates aliases for Japanese fonts using IPAMona fonts"
+publisher = "Jun Kobayashi"
+year = "2008"
+description = "Creates aliases for Japanese fonts using IPAMona fonts, matching the pinned Winetricks replacement table."
+media = "none"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+dependencies = ["ipamona"]
+
+[[steps]]
+type = "font_replacements"
+replacements = [{ alias = "MS UI Gothic", replacement = "IPAMonaUIGothic" }, { alias = "MS Gothic", replacement = "IPAMonaGothic" }, { alias = "MS PGothic", replacement = "IPAMonaPGothic" }, { alias = "MS Mincho", replacement = "IPAMonaMincho" }, { alias = "MS PMincho", replacement = "IPAMonaPMincho" }, { alias = "ＭＳ ゴシック", replacement = "IPAMonaGothic" }, { alias = "ＭＳ Ｐゴシック", replacement = "IPAMonaPGothic" }, { alias = "ＭＳ 明朝", replacement = "IPAMonaMincho" }, { alias = "ＭＳ Ｐ明朝", replacement = "IPAMonaPMincho" }]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "fakejapanese_ipamona"

@@ -1,0 +1,22 @@
+{
+  "name": "bettertricks",
+  "private": true,
+  "packageManager": "pnpm@11.3.0",
+  "scripts": {
+    "dev": "pnpm --filter @bettertricks/desktop tauri dev",
+    "dev:web": "pnpm --filter @bettertricks/desktop dev:web",
+    "build": "pnpm --filter @bettertricks/desktop tauri build",
+    "build:web": "pnpm --filter @bettertricks/desktop build",
+    "smoke:packages": "bash scripts/smoke-linux-packages.sh",
+    "smoke:packages:clean": "bash scripts/smoke-clean-linux-packages.sh",
+    "smoke:catalog-update": "bash scripts/smoke-signed-catalog.sh",
+    "smoke:compatibility-host": "bash scripts/smoke-managed-host.sh",
+    "smoke:proton": "bash scripts/smoke-proton-settings.sh",
+    "smoke:wine": "bash scripts/smoke-wine-settings.sh",
+    "release:checksums": "bash scripts/write-release-checksums.sh",
+    "check": "pnpm --filter @bettertricks/desktop check && cargo check --workspace",
+    "test": "node --test scripts/*.test.mjs && pnpm --filter @bettertricks/desktop test && cargo test --workspace",
+    "catalog:generate": "node scripts/generate-native-settings.mjs && node scripts/generate-native-fonts.mjs && node scripts/generate-catalog.mjs",
+    "catalog:validate": "cargo run -q -p bettertricks-catalog-tool -- validate catalog"
+  }
+}

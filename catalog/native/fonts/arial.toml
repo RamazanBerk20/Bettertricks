@@ -1,0 +1,91 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "arial"
+category = "fonts"
+title = "MS Arial / Arial Black fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Arial / Arial Black fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "arial32.exe"
+cache_path = "corefonts/arial32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/arial32.exe"]
+sha256 = "85297a4d146e9c87ac6f74822734bdee5f4b2a722d7eaa584b7f2cbf76f478f6"
+manual = false
+
+[[files]]
+id = "archive_2"
+filename = "arialb32.exe"
+cache_path = "corefonts/arialb32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/arialb32.exe"]
+sha256 = "a425f0ffb6a1a5ede5b979ed6177f4f4f4fdef6ae7c302a7b7720ef332fec0a8"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/ariblk.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "download"
+file = "archive_2"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/arial"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/arial"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "extract"
+file = "archive_2"
+destination = "${temp}/arial"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/arial"
+fonts = [{ source = "arialbd.ttf", filename = "arialbd.ttf", display_name = "Arial Bold" }, { source = "arialbi.ttf", filename = "arialbi.ttf", display_name = "Arial Bold Italic" }, { source = "ariali.ttf", filename = "ariali.ttf", display_name = "Arial Italic" }, { source = "arial.ttf", filename = "arial.ttf", display_name = "Arial" }, { source = "ariblk.ttf", filename = "ariblk.ttf", display_name = "Arial Black" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/arialbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/arialbi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ariali.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/arial.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ariblk.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "arial"

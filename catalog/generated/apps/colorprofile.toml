@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "colorprofile"
+category = "apps"
+title = "Standard RGB color profile"
+publisher = "Microsoft"
+year = "2005"
+description = "Install Standard RGB color profile in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "colorprofile"

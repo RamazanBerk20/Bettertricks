@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "dxvk_nvapi0061"
+category = "dlls"
+title = "Alternative NVAPI Vulkan implementation on top of DXVK for Linux / Wine (0.6.1)"
+publisher = "Jens Peters"
+year = "2023"
+description = "Install or configure Alternative NVAPI Vulkan implementation on top of DXVK for Linux / Wine (0.6.1) for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "dxvk_nvapi0061"

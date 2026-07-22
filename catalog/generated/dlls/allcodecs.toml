@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "allcodecs"
+category = "dlls"
+title = "All codecs (dirac, ffdshow, icodecs, cinepak, l3codecx, xvid) except wmp"
+publisher = "various"
+year = "1995-2009"
+description = "Install or configure All codecs (dirac, ffdshow, icodecs, cinepak, l3codecx, xvid) except wmp for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "allcodecs"

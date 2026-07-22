@@ -1,0 +1,52 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "andale"
+category = "fonts"
+title = "MS Andale Mono font"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Andale Mono font in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "andale32.exe"
+cache_path = "corefonts/andale32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/andale32.exe"]
+sha256 = "0524fe42951adc3a7eb870e32f0920313c71f170c859b5f770d82b4ee111e970"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/andalemo.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/andale"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/andale"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/andale"
+fonts = [{ source = "andalemo.ttf", filename = "andalemo.ttf", display_name = "Andale Mono" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/andalemo.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "andale"

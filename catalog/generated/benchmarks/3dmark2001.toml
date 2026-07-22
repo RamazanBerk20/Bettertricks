@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "3dmark2001"
+category = "benchmarks"
+title = "3DMark2001"
+publisher = "MadOnion.com"
+year = "2001"
+description = "Install the 3DMark2001 benchmark in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "3dmark2001"

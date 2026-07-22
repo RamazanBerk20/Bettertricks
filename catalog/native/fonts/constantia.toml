@@ -1,0 +1,74 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "constantia"
+category = "fonts"
+title = "MS Constantia font"
+publisher = "Microsoft"
+year = "2009"
+description = "Install and register Microsoft Constantia font from the pinned PowerPoint Viewer archive."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "PowerPointViewer.exe"
+cache_path = "PowerPointViewer/PowerPointViewer.exe"
+urls = ["https://web.archive.org/web/20171225132744if_/https://download.microsoft.com/download/E/6/7/E675FFFC-2A6D-4AB0-B3EB-27C9F8C8F696/PowerPointViewer.exe"]
+sha256 = "249473568eba7a1e4f95498acba594e0f42e6581add4dead70c1dfb908a09423"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/constan.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/constantia"
+
+[[steps]]
+type = "extract"
+file = "archive"
+destination = "${temp}/constantia"
+format = "cabinet"
+include = ["ppviewer.cab"]
+
+[[steps]]
+type = "extract_path"
+source = "${temp}/constantia/ppviewer.cab"
+destination = "${temp}/constantia"
+format = "cabinet"
+include = ["CONSTAN.TTF", "CONSTANB.TTF", "CONSTANI.TTF", "CONSTANZ.TTF"]
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/constantia"
+fonts = [{ source = "CONSTAN.TTF", filename = "constan.ttf", display_name = "Constantia" }, { source = "CONSTANB.TTF", filename = "constanb.ttf", display_name = "Constantia Bold" }, { source = "CONSTANI.TTF", filename = "constani.ttf", display_name = "Constantia Italic" }, { source = "CONSTANZ.TTF", filename = "constanz.ttf", display_name = "Constantia Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/constan.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/constanb.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/constani.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/constanz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "constantia"

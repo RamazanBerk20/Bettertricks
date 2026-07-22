@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "dirac"
+category = "dlls"
+title = "The Dirac directshow filter v1.0.2"
+publisher = "Dirac"
+year = "2009"
+description = "Install or configure The Dirac directshow filter v1.0.2 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "dirac"

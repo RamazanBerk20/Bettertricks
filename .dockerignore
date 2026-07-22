@@ -1,0 +1,10 @@
+.git
+.idea
+.vscode
+node_modules
+.pnpm-store
+target
+apps/desktop/dist
+apps/desktop/src-tauri/gen
+*.log
+*.tsbuildinfo

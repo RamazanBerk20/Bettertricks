@@ -1,0 +1,72 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "ipamona"
+category = "fonts"
+title = "IPAMona Japanese fonts"
+publisher = "Jun Kobayashi"
+year = "2008"
+description = "Install and register IPAMona Japanese fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "opfc-ModuleHP-1.1.1_withIPAMonaFonts-1.0.8.tar.gz"
+cache_path = "ipamona/opfc-ModuleHP-1.1.1_withIPAMonaFonts-1.0.8.tar.gz"
+urls = ["https://web.archive.org/web/20190309175311if_/http://www.geocities.jp/ipa_mona/opfc-ModuleHP-1.1.1_withIPAMonaFonts-1.0.8.tar.gz"]
+sha256 = "ab77beea3b051abf606cd8cd3badf6cb24141ef145c60f508fcfef1e3852bb9d"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/ipamp-mona.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/ipamona"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "tar_gz"
+include = ["opfc-ModuleHP-1.1.1_withIPAMonaFonts-1.0.8/fonts"]
+destination = "${temp}/ipamona"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/ipamona/opfc-ModuleHP-1.1.1_withIPAMonaFonts-1.0.8/fonts"
+fonts = [{ source = "ipagui-mona.ttf", filename = "ipagui-mona.ttf", display_name = "IPAMonaUIGothic" }, { source = "ipag-mona.ttf", filename = "ipag-mona.ttf", display_name = "IPAMonaGothic" }, { source = "ipagp-mona.ttf", filename = "ipagp-mona.ttf", display_name = "IPAMonaPGothic" }, { source = "ipam-mona.ttf", filename = "ipam-mona.ttf", display_name = "IPAMonaMincho" }, { source = "ipamp-mona.ttf", filename = "ipamp-mona.ttf", display_name = "IPAMonaPMincho" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ipagui-mona.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ipag-mona.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ipagp-mona.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ipam-mona.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/ipamp-mona.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "ipamona"

@@ -1,0 +1,17 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "native_mdac"
+category = "settings"
+title = "Override odbc32, odbccp32 and oledb32"
+description = "Prefer native MDAC libraries with builtin fallbacks, including the upstream Wine 6.21 compatibility override."
+media = "none"
+maturity = "native"
+tags = ["dll override", "database"]
+
+[[steps]]
+type = "native_action"
+action = "native_mdac"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "native_mdac"

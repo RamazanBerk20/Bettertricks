@@ -1,0 +1,40 @@
+{
+  "name": "Bettertricks",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "stable",
+      "profile": "minimal",
+      "components": "rustfmt,clippy"
+    }
+  },
+  "forwardPorts": [1420],
+  "mounts": [
+    "source=bettertricks-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=bettertricks-cargo-target,target=${containerWorkspaceFolder}/target,type=volume"
+  ],
+  "portsAttributes": {
+    "1420": {
+      "label": "Bettertricks web preview",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "sudo chown vscode:vscode node_modules target && corepack enable && corepack prepare pnpm@11.3.0 --activate && CI=true pnpm install --frozen-lockfile && cargo fetch",
+  "remoteUser": "vscode",
+  "runArgs": ["--shm-size=1gb"],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "rust-lang.rust-analyzer",
+        "tauri-apps.tauri-vscode"
+      ]
+    }
+  }
+}

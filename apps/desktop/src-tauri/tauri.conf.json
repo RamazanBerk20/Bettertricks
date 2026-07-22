@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Bettertricks",
+  "version": "1.0.0",
+  "identifier": "io.bettertricks.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev:web",
+    "beforeBundleCommand": "cargo build --release -p bettertricks",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Bettertricks",
+        "width": 1360,
+        "height": 860,
+        "minWidth": 900,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb", "rpm"],
+    "icon": ["icons/icon.png"],
+    "category": "Utility",
+    "shortDescription": "A modern Wine prefix and recipe manager",
+    "longDescription": "Bettertricks is a recovery-first Wine prefix manager with a native Winetricks-compatible recipe engine.",
+    "resources": {
+      "../../../catalog/": "catalog/"
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false,
+        "files": {
+          "/usr/bin/bettertricks": "../../../target/release/bettertricks"
+        }
+      },
+      "deb": {
+        "depends": ["wine", "cabextract", "p7zip-full", "unzip", "gzip", "tar", "xz-utils", "zstd"],
+        "files": {
+          "/usr/bin/bettertricks": "../../../target/release/bettertricks"
+        }
+      },
+      "rpm": {
+        "depends": ["wine", "cabextract", "p7zip", "unzip", "gzip", "tar", "xz", "zstd"],
+        "files": {
+          "/usr/bin/bettertricks": "../../../target/release/bettertricks"
+        }
+      }
+    }
+  }
+}

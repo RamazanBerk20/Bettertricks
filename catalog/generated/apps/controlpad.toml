@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "controlpad"
+category = "apps"
+title = "MS ActiveX Control Pad"
+publisher = "Microsoft"
+year = "1997"
+description = "Install MS ActiveX Control Pad in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "controlpad"

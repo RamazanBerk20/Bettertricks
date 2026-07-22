@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "gdiplus_winxp"
+category = "dlls"
+title = "MS GDI+"
+publisher = "Microsoft"
+year = "2009"
+description = "Install or configure MS GDI+ for Windows application compatibility."
+media = "manual_download"
+maturity = "metadata_only"
+tags = ["manual_download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "gdiplus_winxp"

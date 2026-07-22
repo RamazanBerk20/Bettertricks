@@ -1,0 +1,20 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "pptfonts"
+category = "fonts"
+title = "All MS PowerPoint Viewer fonts"
+publisher = "various"
+year = "2007-2009"
+description = "Install every recipe in the upstream All MS PowerPoint Viewer fonts aggregate."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+dependencies = ["calibri", "cambria", "candara", "consolas", "constantia", "corbel", "meiryo"]
+
+[[steps]]
+type = "native_action"
+action = "noop"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "pptfonts"

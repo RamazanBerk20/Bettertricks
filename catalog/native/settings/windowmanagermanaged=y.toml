@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "windowmanagermanaged=y"
+category = "settings"
+title = "Allow the window manager to control windows"
+description = "Allow the window manager to control windows in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\X11 Driver]
+"Managed"="y"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "windowmanagermanaged=y"

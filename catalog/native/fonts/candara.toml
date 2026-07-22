@@ -1,0 +1,74 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "candara"
+category = "fonts"
+title = "MS Candara font"
+publisher = "Microsoft"
+year = "2009"
+description = "Install and register Microsoft Candara font from the pinned PowerPoint Viewer archive."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "PowerPointViewer.exe"
+cache_path = "PowerPointViewer/PowerPointViewer.exe"
+urls = ["https://web.archive.org/web/20171225132744if_/https://download.microsoft.com/download/E/6/7/E675FFFC-2A6D-4AB0-B3EB-27C9F8C8F696/PowerPointViewer.exe"]
+sha256 = "249473568eba7a1e4f95498acba594e0f42e6581add4dead70c1dfb908a09423"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/candara.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/candara"
+
+[[steps]]
+type = "extract"
+file = "archive"
+destination = "${temp}/candara"
+format = "cabinet"
+include = ["ppviewer.cab"]
+
+[[steps]]
+type = "extract_path"
+source = "${temp}/candara/ppviewer.cab"
+destination = "${temp}/candara"
+format = "cabinet"
+include = ["CANDARA.TTF", "CANDARAB.TTF", "CANDARAI.TTF", "CANDARAZ.TTF"]
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/candara"
+fonts = [{ source = "CANDARA.TTF", filename = "candara.ttf", display_name = "Candara" }, { source = "CANDARAB.TTF", filename = "candarab.ttf", display_name = "Candara Bold" }, { source = "CANDARAI.TTF", filename = "candarai.ttf", display_name = "Candara Italic" }, { source = "CANDARAZ.TTF", filename = "candaraz.ttf", display_name = "Candara Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/candara.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/candarab.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/candarai.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/candaraz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "candara"

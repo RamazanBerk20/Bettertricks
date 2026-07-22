@@ -1,0 +1,52 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "lucida"
+category = "fonts"
+title = "MS Lucida Console font"
+publisher = "Microsoft"
+year = "1998"
+description = "Install and register MS Lucida Console font in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "eurofixi.exe"
+cache_path = "lucida/eurofixi.exe"
+urls = ["https://ftpmirror.your.org/pub/misc/ftp.microsoft.com/bussys/winnt/winnt-public/fixes/usa/NT40TSE/hotfixes-postSP3/Euro-fix/eurofixi.exe"]
+sha256 = "41f272a33521f6e15f2cce9ff1e049f2badd5ff0dc327fc81b60825766d5b6c7"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/lucon.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/lucida"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "cabinet"
+include = ["lucon.ttf"]
+destination = "${temp}/lucida"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/lucida"
+fonts = [{ source = "lucon.ttf", filename = "lucon.ttf", display_name = "Lucida Console" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/lucon.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "lucida"

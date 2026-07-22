@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "psm=2"
+category = "settings"
+title = "Set MaxShaderModelPS to 2"
+description = "Set MaxShaderModelPS to 2 in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Direct3D]
+"MaxShaderModelPS"="2"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "psm=2"

@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "heapcheck"
+category = "settings"
+title = "Enable heap checking with GlobalFlag"
+description = "Enable heap checking with GlobalFlag in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager]
+"GlobalFlag"=dword:00200030'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "heapcheck"

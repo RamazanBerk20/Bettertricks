@@ -1,0 +1,23 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "forcemono"
+category = "settings"
+title = "Force Wine Mono instead of .NET"
+description = "Prefer Wine Mono for managed applications in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["mono", "debugging"]
+
+[[steps]]
+type = "dll_override"
+mode = "native"
+libraries = ["mscoree"]
+
+[[steps]]
+type = "dll_override"
+mode = "disabled"
+libraries = ["mscorsvw.exe"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "forcemono"

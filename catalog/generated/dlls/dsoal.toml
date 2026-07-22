@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "dsoal"
+category = "dlls"
+title = "A DirectSound DLL replacer that enables surround sound, HRTF, and EAX support via OpenAL Soft"
+publisher = "kcat"
+year = "2019"
+description = "Install or configure A DirectSound DLL replacer that enables surround sound, HRTF, and EAX support via OpenAL Soft for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "dsoal"

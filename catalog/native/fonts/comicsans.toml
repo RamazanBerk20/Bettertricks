@@ -1,0 +1,57 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "comicsans"
+category = "fonts"
+title = "MS Comic Sans fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Comic Sans fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "comic32.exe"
+cache_path = "corefonts/comic32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/comic32.exe"]
+sha256 = "9c6df3feefde26d4e41d4a4fe5db2a89f9123a772594d7f59afd062625cd204e"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/comic.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/comicsans"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/comicsans"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/comicsans"
+fonts = [{ source = "comicbd.ttf", filename = "comicbd.ttf", display_name = "Comic Sans MS Bold" }, { source = "comic.ttf", filename = "comic.ttf", display_name = "Comic Sans MS" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/comicbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/comic.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "comicsans"

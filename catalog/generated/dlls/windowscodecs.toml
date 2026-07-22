@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "windowscodecs"
+category = "dlls"
+title = "MS Windows Imaging Component"
+publisher = "Microsoft"
+year = "2006"
+description = "Install or configure MS Windows Imaging Component for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "windowscodecs"

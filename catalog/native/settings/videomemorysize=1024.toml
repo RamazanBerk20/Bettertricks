@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "videomemorysize=1024"
+category = "settings"
+title = "Report 1024 MB of video memory"
+description = "Report 1024 MB of video memory in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Direct3D]
+"VideoMemorySize"="1024"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "videomemorysize=1024"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "firefox"
+category = "apps"
+title = "Firefox 51.0"
+publisher = "Mozilla"
+year = "2017"
+description = "Install Firefox 51.0 in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "firefox"

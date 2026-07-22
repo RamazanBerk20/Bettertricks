@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "unigine_heaven"
+category = "benchmarks"
+title = "Unigen Heaven 2.1 Benchmark"
+publisher = "Unigen"
+year = "2010"
+description = "Install the Unigen Heaven 2.1 Benchmark benchmark in the selected Wine prefix."
+media = "manual_download"
+maturity = "metadata_only"
+tags = ["manual_download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "unigine_heaven"

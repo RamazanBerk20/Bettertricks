@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "utorrent"
+category = "apps"
+title = "µTorrent 2.2.1"
+publisher = "BitTorrent"
+year = "2011"
+description = "Install µTorrent 2.2.1 in the selected Wine prefix."
+media = "manual_download"
+maturity = "metadata_only"
+tags = ["manual_download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "utorrent"

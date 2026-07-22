@@ -1,0 +1,20 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "cjkfonts"
+category = "fonts"
+title = "All Chinese, Japanese, Korean fonts and aliases"
+publisher = "Various"
+year = "1999-2019"
+description = "Install every recipe in the upstream All Chinese, Japanese, Korean fonts and aliases aggregate."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+dependencies = ["fakechinese", "fakejapanese", "fakekorean", "unifont"]
+
+[[steps]]
+type = "native_action"
+action = "noop"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "cjkfonts"

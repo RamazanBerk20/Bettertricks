@@ -1,0 +1,22 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "vd=640x480"
+category = "settings"
+title = "Enable a 640x480 virtual desktop"
+description = "Enable a 640x480 virtual desktop in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["desktop", "display"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Explorer]
+"Desktop"="Default"
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer\Desktops]
+"Default"="640x480"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "vd=640x480"

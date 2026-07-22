@@ -1,0 +1,22 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "vd=off"
+category = "settings"
+title = "Disable virtual desktop"
+description = "Disable virtual desktop in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["desktop", "display"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\Explorer]
+"Desktop"=-
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer\Desktops]
+"Default"=-'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "vd=off"

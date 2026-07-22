@@ -1,0 +1,20 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "fakekorean"
+category = "fonts"
+title = "Creates aliases for Korean fonts using Source Han Sans fonts"
+publisher = "Adobe"
+year = "2019"
+description = "Creates aliases for Korean fonts using Source Han Sans fonts, matching the pinned Winetricks replacement table."
+media = "none"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+dependencies = ["sourcehansans"]
+
+[[steps]]
+type = "font_replacements"
+replacements = [{ alias = "Batang", replacement = "Source Han Sans K" }, { alias = "BatangChe", replacement = "Source Han Sans K" }, { alias = "Dotum", replacement = "Source Han Sans K" }, { alias = "DotumChe", replacement = "Source Han Sans K" }, { alias = "Gulim", replacement = "Source Han Sans K" }, { alias = "GulimChe", replacement = "Source Han Sans K" }, { alias = "Gungsuh", replacement = "Source Han Sans K" }, { alias = "GungsuhChe", replacement = "Source Han Sans K" }, { alias = "Malgun Gothic", replacement = "Source Han Sans K" }, { alias = "바탕", replacement = "Source Han Sans K" }, { alias = "바탕체", replacement = "Source Han Sans K" }, { alias = "돋움", replacement = "Source Han Sans K" }, { alias = "돋움체", replacement = "Source Han Sans K" }, { alias = "굴림", replacement = "Source Han Sans K" }, { alias = "굴림체", replacement = "Source Han Sans K" }, { alias = "맑은 고딕", replacement = "Source Han Sans K" }]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "fakekorean"

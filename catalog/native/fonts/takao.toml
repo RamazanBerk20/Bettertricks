@@ -1,0 +1,77 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "takao"
+category = "fonts"
+title = "Takao Japanese fonts"
+publisher = "Jun Kobayashi"
+year = "2010"
+description = "Install and register Takao Japanese fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "takao-fonts-ttf-003.02.01.zip"
+cache_path = "takao/takao-fonts-ttf-003.02.01.zip"
+urls = ["https://launchpad.net/takao-fonts/trunk/003.02.01/+download/takao-fonts-ttf-003.02.01.zip"]
+sha256 = "2f526a16c7931958f560697d494d8304949b3ce0aef246fb0c727fbbcc39089e"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/takaoexmincho.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/takao"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "zip"
+include = []
+destination = "${temp}/takao"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/takao/takao-fonts-ttf-003.02.01"
+fonts = [{ source = "takaogothic.ttf", filename = "takaogothic.ttf", display_name = "TakaoGothic" }, { source = "takaopgothic.ttf", filename = "takaopgothic.ttf", display_name = "TakaoPGothic" }, { source = "takaomincho.ttf", filename = "takaomincho.ttf", display_name = "TakaoMincho" }, { source = "takaopmincho.ttf", filename = "takaopmincho.ttf", display_name = "TakaoPMincho" }, { source = "takaoexgothic.ttf", filename = "takaoexgothic.ttf", display_name = "TakaoExGothic" }, { source = "takaoexmincho.ttf", filename = "takaoexmincho.ttf", display_name = "TakaoExMincho" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/takaogothic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/takaopgothic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/takaomincho.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/takaopmincho.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/takaoexgothic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/takaoexmincho.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "takao"

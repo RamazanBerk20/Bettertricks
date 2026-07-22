@@ -1,0 +1,52 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "impact"
+category = "fonts"
+title = "MS Impact fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Impact fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "impact32.exe"
+cache_path = "corefonts/impact32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/impact32.exe"]
+sha256 = "6061ef3b7401d9642f5dfdb5f2b376aa14663f6275e60a51207ad4facf2fccfb"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/impact.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/impact"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/impact"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/impact"
+fonts = [{ source = "impact.ttf", filename = "impact.ttf", display_name = "Impact" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/impact.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "impact"

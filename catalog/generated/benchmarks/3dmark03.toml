@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "3dmark03"
+category = "benchmarks"
+title = "3D Mark 03"
+publisher = "Futuremark"
+year = "2003"
+description = "Install the 3D Mark 03 benchmark in the selected Wine prefix."
+media = "manual_download"
+maturity = "metadata_only"
+tags = ["manual_download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "3dmark03"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "wglgears"
+category = "benchmarks"
+title = "wglgears"
+publisher = "Clinton L. Jeffery"
+year = "2005"
+description = "Install the wglgears benchmark in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "wglgears"

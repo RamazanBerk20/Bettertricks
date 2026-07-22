@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "windowmanagerdecorated=n"
+category = "settings"
+title = "Prevent the window manager from decorating windows"
+description = "Prevent the window manager from decorating windows in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\X11 Driver]
+"Decorated"="n"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "windowmanagerdecorated=n"

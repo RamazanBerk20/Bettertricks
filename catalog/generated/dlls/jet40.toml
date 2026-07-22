@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "jet40"
+category = "dlls"
+title = "MS Jet 4.0 Service Pack 8"
+publisher = "Microsoft"
+year = "2003"
+description = "Install or configure MS Jet 4.0 Service Pack 8 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "jet40"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "cmake"
+category = "apps"
+title = "CMake 2.8"
+publisher = "Kitware"
+year = "2013"
+description = "Install CMake 2.8 in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "cmake"

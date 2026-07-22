@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "stalker_pripyat_bench"
+category = "benchmarks"
+title = "S.T.A.L.K.E.R.: Call of Pripyat benchmark"
+publisher = "GSC Game World"
+year = "2009"
+description = "Install the S.T.A.L.K.E.R.: Call of Pripyat benchmark benchmark in the selected Wine prefix."
+media = "manual_download"
+maturity = "metadata_only"
+tags = ["manual_download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "stalker_pripyat_bench"

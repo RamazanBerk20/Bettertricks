@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "irfanview"
+category = "apps"
+title = "Irfanview"
+publisher = "Irfan Skiljan"
+year = "2016"
+description = "Install Irfanview in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "irfanview"

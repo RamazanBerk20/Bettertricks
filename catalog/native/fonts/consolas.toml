@@ -1,0 +1,74 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "consolas"
+category = "fonts"
+title = "MS Consolas console font"
+publisher = "Microsoft"
+year = "2011"
+description = "Install and register Microsoft Consolas console font from the pinned PowerPoint Viewer archive."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "PowerPointViewer.exe"
+cache_path = "PowerPointViewer/PowerPointViewer.exe"
+urls = ["https://web.archive.org/web/20171225132744if_/https://download.microsoft.com/download/E/6/7/E675FFFC-2A6D-4AB0-B3EB-27C9F8C8F696/PowerPointViewer.exe"]
+sha256 = "249473568eba7a1e4f95498acba594e0f42e6581add4dead70c1dfb908a09423"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/consola.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/consolas"
+
+[[steps]]
+type = "extract"
+file = "archive"
+destination = "${temp}/consolas"
+format = "cabinet"
+include = ["ppviewer.cab"]
+
+[[steps]]
+type = "extract_path"
+source = "${temp}/consolas/ppviewer.cab"
+destination = "${temp}/consolas"
+format = "cabinet"
+include = ["CONSOLA.TTF", "CONSOLAB.TTF", "CONSOLAI.TTF", "CONSOLAZ.TTF"]
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/consolas"
+fonts = [{ source = "CONSOLA.TTF", filename = "consola.ttf", display_name = "Consolas" }, { source = "CONSOLAB.TTF", filename = "consolab.ttf", display_name = "Consolas Bold" }, { source = "CONSOLAI.TTF", filename = "consolai.ttf", display_name = "Consolas Italic" }, { source = "CONSOLAZ.TTF", filename = "consolaz.ttf", display_name = "Consolas Bold Italic" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/consola.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/consolab.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/consolai.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/consolaz.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "consolas"

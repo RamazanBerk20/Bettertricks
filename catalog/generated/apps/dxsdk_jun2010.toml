@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "dxsdk_jun2010"
+category = "apps"
+title = "MS DirectX SDK, June 2010 (developers only)"
+publisher = "Microsoft"
+year = "2010"
+description = "Install MS DirectX SDK, June 2010 (developers only) in the selected Wine prefix."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "dxsdk_jun2010"

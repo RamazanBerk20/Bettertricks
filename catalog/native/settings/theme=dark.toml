@@ -1,0 +1,59 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "theme=dark"
+category = "settings"
+title = "Use dark theme for the prefix"
+description = "Use dark theme for the prefix."
+media = "none"
+maturity = "native"
+tags = ["theme", "appearance"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Control Panel\Colors]
+"ActiveBorder"="49 54 58"
+"ActiveTitle"="49 54 58"
+"AppWorkSpace"="60 64 72"
+"Background"="49 54 58"
+"ButtonAlternativeFace"="200 0 0"
+"ButtonDkShadow"="154 154 154"
+"ButtonFace"="49 54 58"
+"ButtonHilight"="119 126 140"
+"ButtonLight"="60 64 72"
+"ButtonShadow"="60 64 72"
+"ButtonText"="219 220 222"
+"GradientActiveTitle"="49 54 58"
+"GradientInactiveTitle"="49 54 58"
+"GrayText"="155 155 155"
+"Hilight"="119 126 140"
+"HilightText"="255 255 255"
+"InactiveBorder"="49 54 58"
+"InactiveTitle"="49 54 58"
+"InactiveTitleText"="219 220 222"
+"InfoText"="159 167 180"
+"InfoWindow"="49 54 58"
+"Menu"="49 54 58"
+"MenuBar"="49 54 58"
+"MenuHilight"="119 126 140"
+"MenuText"="219 220 222"
+"Scrollbar"="73 78 88"
+"TitleText"="219 220 222"
+"Window"="35 38 41"
+"WindowFrame"="49 54 58"
+"WindowText"="219 220 222"
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\ThemeManager]
+"ColorName"=-
+"DllName"=-
+"LoadedBefore"=-
+"SizeName"=-
+"ThemeActive"="0"
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize]
+"AppsUseLightTheme"=dword:00000000
+"SystemUsesLightTheme"=dword:00000000'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "theme=dark"

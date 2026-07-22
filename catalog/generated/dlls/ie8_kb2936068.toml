@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "ie8_kb2936068"
+category = "dlls"
+title = "Cumulative Security Update for Internet Explorer 8"
+publisher = "Microsoft"
+year = "2014"
+description = "Install or configure Cumulative Security Update for Internet Explorer 8 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "ie8_kb2936068"

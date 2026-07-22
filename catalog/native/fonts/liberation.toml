@@ -1,0 +1,127 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "liberation"
+category = "fonts"
+title = "Red Hat Liberation fonts (Mono, Sans, SansNarrow, Serif)"
+publisher = "Red Hat"
+year = "2008"
+description = "Install and register Red Hat Liberation fonts (Mono, Sans, SansNarrow, Serif) in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "liberation-fonts-ttf-1.07.4.tar.gz"
+cache_path = "liberation/liberation-fonts-ttf-1.07.4.tar.gz"
+urls = ["https://releases.pagure.org/liberation-fonts/liberation-fonts-ttf-1.07.4.tar.gz"]
+sha256 = "61a7e2b6742a43c73e8762cdfeaf6dfcf9abdd2cfa0b099a9854d69bc4cfee5c"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/liberationserif-regular.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/liberation"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "tar_gz"
+include = []
+destination = "${temp}/liberation"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/liberation/liberation-fonts-ttf-1.07.4"
+fonts = [{ source = "liberationmono-bolditalic.ttf", filename = "liberationmono-bolditalic.ttf", display_name = "Liberation Mono Bold Italic" }, { source = "liberationmono-bold.ttf", filename = "liberationmono-bold.ttf", display_name = "Liberation Mono Bold" }, { source = "liberationmono-italic.ttf", filename = "liberationmono-italic.ttf", display_name = "Liberation Mono Italic" }, { source = "liberationmono-regular.ttf", filename = "liberationmono-regular.ttf", display_name = "Liberation Mono" }, { source = "liberationsans-bolditalic.ttf", filename = "liberationsans-bolditalic.ttf", display_name = "Liberation Sans Bold Italic" }, { source = "liberationsans-bold.ttf", filename = "liberationsans-bold.ttf", display_name = "Liberation Sans Bold" }, { source = "liberationsans-italic.ttf", filename = "liberationsans-italic.ttf", display_name = "Liberation Sans Italic" }, { source = "liberationsans-regular.ttf", filename = "liberationsans-regular.ttf", display_name = "Liberation Sans" }, { source = "liberationsansnarrow-bolditalic.ttf", filename = "liberationsansnarrow-bolditalic.ttf", display_name = "Liberation Sans Narrow Bold Italic" }, { source = "liberationsansnarrow-bold.ttf", filename = "liberationsansnarrow-bold.ttf", display_name = "Liberation Sans Narrow Bold" }, { source = "liberationsansnarrow-italic.ttf", filename = "liberationsansnarrow-italic.ttf", display_name = "Liberation Sans Narrow Italic" }, { source = "liberationsansnarrow-regular.ttf", filename = "liberationsansnarrow-regular.ttf", display_name = "Liberation Sans Narrow" }, { source = "liberationserif-bolditalic.ttf", filename = "liberationserif-bolditalic.ttf", display_name = "Liberation Serif Bold Italic" }, { source = "liberationserif-bold.ttf", filename = "liberationserif-bold.ttf", display_name = "Liberation Serif Bold" }, { source = "liberationserif-italic.ttf", filename = "liberationserif-italic.ttf", display_name = "Liberation Serif Italic" }, { source = "liberationserif-regular.ttf", filename = "liberationserif-regular.ttf", display_name = "Liberation Serif" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationmono-bolditalic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationmono-bold.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationmono-italic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationmono-regular.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsans-bolditalic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsans-bold.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsans-italic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsans-regular.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsansnarrow-bolditalic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsansnarrow-bold.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsansnarrow-italic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationsansnarrow-regular.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationserif-bolditalic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationserif-bold.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationserif-italic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/liberationserif-regular.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "liberation"

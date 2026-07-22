@@ -1,0 +1,67 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "trebuchet"
+category = "fonts"
+title = "MS Trebuchet fonts"
+publisher = "Microsoft"
+year = "2008"
+description = "Install and register Microsoft Trebuchet fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive_1"
+filename = "trebuc32.exe"
+cache_path = "corefonts/trebuc32.exe"
+urls = ["https://github.com/pushcx/corefonts/raw/master/trebuc32.exe"]
+sha256 = "5a690d9bb8510be1b8b4fe49f1f2319651fe51bbe54775ddddd8ef0bd07fdac9"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/trebuc.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive_1"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/trebuchet"
+
+[[steps]]
+type = "extract"
+file = "archive_1"
+destination = "${temp}/trebuchet"
+format = "cabinet"
+include = []
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/trebuchet"
+fonts = [{ source = "trebucbd.ttf", filename = "trebucbd.ttf", display_name = "Trebuchet MS Bold" }, { source = "trebucbi.ttf", filename = "trebucbi.ttf", display_name = "Trebuchet MS Bold Italic" }, { source = "trebucit.ttf", filename = "trebucit.ttf", display_name = "Trebuchet MS Italic" }, { source = "trebuc.ttf", filename = "trebuc.ttf", display_name = "Trebuchet MS" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebucbd.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebucbi.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebucit.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/trebuc.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "trebuchet"

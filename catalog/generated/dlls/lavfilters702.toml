@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "lavfilters702"
+category = "dlls"
+title = "LAV Filters 0.70.2"
+publisher = "Hendrik Leppkes"
+year = "2017"
+description = "Install or configure LAV Filters 0.70.2 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "lavfilters702"

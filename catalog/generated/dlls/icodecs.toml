@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "icodecs"
+category = "dlls"
+title = "Indeo codecs"
+publisher = "Intel"
+year = "1998"
+description = "Install or configure Indeo codecs for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "icodecs"

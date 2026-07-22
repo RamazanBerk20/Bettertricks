@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "protectionid"
+category = "apps"
+title = "Protection ID"
+publisher = "CDKiLLER & TippeX"
+year = "2016"
+description = "Install Protection ID in the selected Wine prefix."
+media = "manual_download"
+maturity = "metadata_only"
+tags = ["manual_download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "protectionid"

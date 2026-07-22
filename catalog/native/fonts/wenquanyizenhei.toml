@@ -1,0 +1,52 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "wenquanyizenhei"
+category = "fonts"
+title = "WenQuanYi ZenHei font"
+publisher = "wenq.org"
+year = "2009"
+description = "Install and register WenQuanYi ZenHei font in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "archive"
+filename = "wqy-zenhei-0.8.38-1.tar.gz"
+cache_path = "wenquanyizenhei/wqy-zenhei-0.8.38-1.tar.gz"
+urls = ["https://downloads.sourceforge.net/wqy/wqy-zenhei-0.8.38-1.tar.gz"]
+sha256 = "6018eb54243eddc41e9cbe0b71feefa5cb2570ecbaccd39daa025961235dea22"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/wqy-zenhei.ttc"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "archive"
+
+[[steps]]
+type = "ensure_directory"
+path = "${temp}/wenquanyizenhei"
+
+[[steps]]
+type = "extract"
+file = "archive"
+format = "tar_gz"
+include = []
+destination = "${temp}/wenquanyizenhei"
+
+[[steps]]
+type = "install_fonts"
+source = "${temp}/wenquanyizenhei/wqy-zenhei"
+fonts = [{ source = "wqy-zenhei.ttc", filename = "wqy-zenhei.ttc", display_name = "WenQuanYi Zen Hei" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/wqy-zenhei.ttc"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "wenquanyizenhei"

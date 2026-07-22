@@ -1,0 +1,19 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "mwo=force"
+category = "settings"
+title = "Set DirectInput MouseWarpOverride to force"
+description = "Set DirectInput MouseWarpOverride to force in the selected prefix."
+media = "none"
+maturity = "native"
+tags = ["registry", "compatibility"]
+
+[[steps]]
+type = "registry"
+content = '''[HKEY_CURRENT_USER\Software\Wine\DirectInput]
+"MouseWarpOverride"="force"'''
+architecture = "prefix"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mwo=force"

@@ -1,0 +1,18 @@
+# Generated from audited Winetricks settings translations. Do not edit by hand.
+schema = 1
+id = "bad"
+category = "settings"
+title = "Intentional failure test"
+description = "Fail intentionally to exercise operation error handling and recovery."
+media = "none"
+maturity = "native"
+tags = ["test", "diagnostics"]
+
+[[steps]]
+type = "native_action"
+action = "intentional_failure"
+parameters = { message = "The upstream bad verb failed intentionally." }
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "bad"

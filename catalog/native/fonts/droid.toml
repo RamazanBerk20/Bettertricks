@@ -1,0 +1,177 @@
+# Generated from audited Winetricks font translations. Do not edit by hand.
+schema = 1
+id = "droid"
+category = "fonts"
+title = "Droid fonts"
+publisher = "Ascender Corporation"
+year = "2009"
+description = "Install and register Droid fonts in the selected prefix."
+media = "download"
+maturity = "native"
+tags = ["fonts", "compatibility"]
+
+[[files]]
+id = "font_1"
+filename = "DroidSans-Bold.ttf"
+cache_path = "droid/DroidSans-Bold.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSans-Bold.ttf"]
+sha256 = "2f529a3e60c007979d95d29794c3660694217fb882429fb33919d2245fe969e9"
+manual = false
+
+[[files]]
+id = "font_2"
+filename = "DroidSansFallback.ttf"
+cache_path = "droid/DroidSansFallback.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSansFallback.ttf"]
+sha256 = "05d71b179ef97b82cf1bb91cef290c600a510f77f39b4964359e3ef88378c79d"
+manual = false
+
+[[files]]
+id = "font_3"
+filename = "DroidSansJapanese.ttf"
+cache_path = "droid/DroidSansJapanese.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSansJapanese.ttf"]
+sha256 = "935867c21b8484c959170e62879460ae9363eae91f9b35e4519d24080e2eac30"
+manual = false
+
+[[files]]
+id = "font_4"
+filename = "DroidSansMono.ttf"
+cache_path = "droid/DroidSansMono.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSansMono.ttf"]
+sha256 = "12b552de765dc1265d64f9f5566649930dde4dba07da0251d9f92801e70a1047"
+manual = false
+
+[[files]]
+id = "font_5"
+filename = "DroidSans.ttf"
+cache_path = "droid/DroidSans.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSans.ttf"]
+sha256 = "f51b88945f4c1b236f44b8d55a2d304316869127e95248c435c23f1e4142a7db"
+manual = false
+
+[[files]]
+id = "font_6"
+filename = "DroidSerif-BoldItalic.ttf"
+cache_path = "droid/DroidSerif-BoldItalic.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSerif-BoldItalic.ttf"]
+sha256 = "3fdf15b911c04317e5881ae1e4b9faefcdc4bf4cfb60223597d5c9455c3e4156"
+manual = false
+
+[[files]]
+id = "font_7"
+filename = "DroidSerif-Bold.ttf"
+cache_path = "droid/DroidSerif-Bold.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSerif-Bold.ttf"]
+sha256 = "d28533eed8368f047eb5f57a88a91ba2ffc8b69a2dec5e50fe3f0c11ae3f4d8e"
+manual = false
+
+[[files]]
+id = "font_8"
+filename = "DroidSerif-Italic.ttf"
+cache_path = "droid/DroidSerif-Italic.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSerif-Italic.ttf"]
+sha256 = "8a55a4823886234792991dd304dfa1fa120ae99483ec6c2255597d7d913b9a55"
+manual = false
+
+[[files]]
+id = "font_9"
+filename = "DroidSerif-Regular.ttf"
+cache_path = "droid/DroidSerif-Regular.ttf"
+urls = ["https://raw.githubusercontent.com/android/platform_frameworks_base/feef9887e8f8eb6f64fc1b4552c02efb5755cdc1/data/fonts/DroidSerif-Regular.ttf"]
+sha256 = "22aea9471bea5bce1ec3bf7136c84f075b3d11cf09dffdc3dba05e570094cbde"
+manual = false
+
+[[detect]]
+path = "${windows}/Fonts/droidserif-regular.ttf"
+kind = "file"
+
+[[steps]]
+type = "download"
+file = "font_1"
+
+[[steps]]
+type = "download"
+file = "font_2"
+
+[[steps]]
+type = "download"
+file = "font_3"
+
+[[steps]]
+type = "download"
+file = "font_4"
+
+[[steps]]
+type = "download"
+file = "font_5"
+
+[[steps]]
+type = "download"
+file = "font_6"
+
+[[steps]]
+type = "download"
+file = "font_7"
+
+[[steps]]
+type = "download"
+file = "font_8"
+
+[[steps]]
+type = "download"
+file = "font_9"
+
+[[steps]]
+type = "install_fonts"
+source = "${cache}/droid"
+fonts = [{ source = "DroidSans-Bold.ttf", filename = "droidsans-bold.ttf", display_name = "Droid Sans Bold" }, { source = "DroidSansFallback.ttf", filename = "droidsansfallback.ttf", display_name = "Droid Sans Fallback" }, { source = "DroidSansJapanese.ttf", filename = "droidsansjapanese.ttf", display_name = "Droid Sans Japanese" }, { source = "DroidSansMono.ttf", filename = "droidsansmono.ttf", display_name = "Droid Sans Mono" }, { source = "DroidSans.ttf", filename = "droidsans.ttf", display_name = "Droid Sans" }, { source = "DroidSerif-BoldItalic.ttf", filename = "droidserif-bolditalic.ttf", display_name = "Droid Serif Bold Italic" }, { source = "DroidSerif-Bold.ttf", filename = "droidserif-bold.ttf", display_name = "Droid Serif Bold" }, { source = "DroidSerif-Italic.ttf", filename = "droidserif-italic.ttf", display_name = "Droid Serif Italic" }, { source = "DroidSerif-Regular.ttf", filename = "droidserif-regular.ttf", display_name = "Droid Serif" }]
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidsans-bold.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidsansfallback.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidsansjapanese.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidsansmono.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidsans.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidserif-bolditalic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidserif-bold.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidserif-italic.ttf"
+kind = "file"
+
+[[verify]]
+type = "verify_path"
+path = "${windows}/Fonts/droidserif-regular.ttf"
+kind = "file"
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "droid"

@@ -1,0 +1,15 @@
+# Generated from upstream Winetricks metadata. Do not edit by hand.
+schema = 1
+id = "mfc120"
+category = "dlls"
+title = "Visual C++ 2013 mfc120 library; part of vcrun2013"
+publisher = "Microsoft"
+year = "2013"
+description = "Install or configure Visual C++ 2013 mfc120 library; part of vcrun2013 for Windows application compatibility."
+media = "download"
+maturity = "metadata_only"
+tags = ["downloadable", "download"]
+
+[source]
+upstream_tag = "20260125"
+upstream_verb = "mfc120"
