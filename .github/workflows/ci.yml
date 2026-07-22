@@ -29,6 +29,7 @@ jobs:
             cabextract \
             patchelf \
             p7zip-full \
+            ripgrep \
             rpm \
             unzip \
             wine \
