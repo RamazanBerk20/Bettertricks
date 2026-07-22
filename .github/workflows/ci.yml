@@ -59,7 +59,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Read application version
-        run: echo "BETTERTRICKS_VERSION=$(node -p \"require('./apps/desktop/src-tauri/tauri.conf.json').version\")" >> "$GITHUB_ENV"
+        run: >-
+          node -e 'const fs = require("node:fs");
+          const version = require("./apps/desktop/src-tauri/tauri.conf.json").version;
+          fs.appendFileSync(process.env.GITHUB_ENV, "BETTERTRICKS_VERSION=" + version + "\n");'
 
       - name: Install pinned Winetricks compatibility host
         run: |
