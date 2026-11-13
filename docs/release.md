@@ -61,9 +61,9 @@ The Tauri build produces these verified x86-64 release files:
 
 | Format | File | SHA-256 |
 | --- | --- | --- |
-| AppImage | `Bettertricks_1.1_amd64.AppImage` | `4e456a6d7b6f458e182362dac35165dc6a2a4b9a2fa43ae879ae46172a8c6f51` |
-| Debian | `Bettertricks_1.1_amd64.deb` | `37db41e3fe4bf58acee5ef56d8082e27af3bd6d56dc583f681d2cd1dbfca1faf` |
-| RPM | `Bettertricks-1.1-1.x86_64.rpm` | `45bc2c35210e52f669b8280d05768b46895ca48f76fefffd5d8faa3d421e4210` |
+| AppImage | `Bettertricks_1.1_amd64.AppImage` | `cd8e79fb405911e2ae7a9ac7ddfd070904c53a16eac46678bdb360b453505b0b` |
+| Debian | `Bettertricks_1.1_amd64.deb` | `92eacc0d90c969e6d55294d075f20f8845990846df41cc8193a44ff98a1139db` |
+| RPM | `Bettertricks-1.1-1.x86_64.rpm` | `1e28a204e8cfd41b6ebb13691be9b7d81f5238565747ac34f3c4501a09b7c6f6` |
 
 `target/release/publish/SHA256SUMS` records the same digests. CI generates it only after every
 release gate passes against the exact 1.1 artifacts and uploads it alongside the packages.

@@ -26,6 +26,7 @@ Added:
   catalog updates can move the managed host without a new app release.
 - Signed catalog revisions with a rollback pin that survives a newer bundled catalog.
 - AppStream metadata is now installed with the AppImage, Debian and RPM packages.
+- The AppImage, Debian and RPM packages now include the licence and NOTICE (`/usr/share/doc/bettertricks/copyright` in the deb, `/usr/share/licenses/bettertricks/` otherwise).
 - A quiet GitHub Sponsors link in the README and repository funding file.
 
 Changed:

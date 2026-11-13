@@ -43,21 +43,27 @@
         "bundleMediaFramework": false,
         "files": {
           "/usr/bin/bettertricks": "../../../target/release/bettertricks",
-          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml"
+          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml",
+          "/usr/share/licenses/bettertricks/LICENSE": "../../../LICENSE",
+          "/usr/share/licenses/bettertricks/NOTICE": "../../../NOTICE"
         }
       },
       "deb": {
         "depends": ["wine", "cabextract", "p7zip-full", "unzip", "gzip", "tar", "xz-utils", "zstd"],
         "files": {
           "/usr/bin/bettertricks": "../../../target/release/bettertricks",
-          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml"
+          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml",
+          "/usr/share/doc/bettertricks/copyright": "../../../LICENSE",
+          "/usr/share/doc/bettertricks/NOTICE": "../../../NOTICE"
         }
       },
       "rpm": {
         "depends": ["wine", "cabextract", "p7zip", "unzip", "gzip", "tar", "xz", "zstd"],
         "files": {
           "/usr/bin/bettertricks": "../../../target/release/bettertricks",
-          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml"
+          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml",
+          "/usr/share/licenses/bettertricks/LICENSE": "../../../LICENSE",
+          "/usr/share/licenses/bettertricks/NOTICE": "../../../NOTICE"
         }
       }
     }
