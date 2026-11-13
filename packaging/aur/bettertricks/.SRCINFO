@@ -24,6 +24,6 @@ pkgbase = bettertricks
 	optdepends = zenity: graphical prompts for compatibility-host recipes
 	options = !lto
 	source = bettertricks-1.1.0.tar.gz::https://github.com/RamazanBerk20/Bettertricks/archive/refs/tags/v1.1.tar.gz
-	sha256sums = SKIP
+	sha256sums = 3df606a6a284492c3e3523342d6ea91a45d8e2453380af7a268ece8a04d010fe
 
 pkgname = bettertricks

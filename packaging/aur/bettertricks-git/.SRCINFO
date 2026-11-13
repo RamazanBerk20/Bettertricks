@@ -1,6 +1,6 @@
 pkgbase = bettertricks-git
 	pkgdesc = Recovery-first Wine prefix manager and Winetricks-compatible recipe engine (git)
-	pkgver = 1.1.0.r0.g0000000
+	pkgver = 1.1.r2.gf591315
 	pkgrel = 1
 	url = https://github.com/RamazanBerk20/Bettertricks
 	arch = x86_64
