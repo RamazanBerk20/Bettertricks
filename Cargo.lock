@@ -163,7 +163,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bettertricks"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bettertricks-core",
  "clap",
@@ -176,7 +176,7 @@ dependencies = [
 
 [[package]]
 name = "bettertricks-catalog-tool"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "bettertricks-core",
@@ -193,7 +193,7 @@ dependencies = [
 
 [[package]]
 name = "bettertricks-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -226,7 +226,7 @@ dependencies = [
 
 [[package]]
 name = "bettertricks-desktop"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bettertricks-core",
  "chrono",
