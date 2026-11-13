@@ -415,5 +415,6 @@
   "Keep restore points per prefix": "Önek başına saklanacak geri yükleme noktaları",
   "Older restore points are deleted automatically after a new one is created.": "Yeni bir geri yükleme noktası oluşturulduktan sonra eski noktalar otomatik olarak silinir.",
   "Unlimited": "Sınırsız",
-  "Restore points use {size}.": "Geri yükleme noktaları {size} yer kaplıyor."
+  "Restore points use {size}.": "Geri yükleme noktaları {size} yer kaplıyor.",
+  "Support development": "Geliştirmeyi destekle"
 }

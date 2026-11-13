@@ -211,6 +211,7 @@ export const mockBackend = {
       }
       case "restore_prefix":
       case "open_url":
+      case "open_sponsor_page":
         return undefined as T;
       case "inspect_legacy_verb":
         return {

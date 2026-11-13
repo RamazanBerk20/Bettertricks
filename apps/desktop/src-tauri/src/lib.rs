@@ -534,6 +534,16 @@ async fn open_url(url: String) -> CommandResult<()> {
     Ok(())
 }
 
+/// Fixed, argument-free opener for the owner's sponsor page; deliberately not routed through `open_url`.
+#[tauri::command]
+async fn open_sponsor_page() -> CommandResult<()> {
+    Command::new("xdg-open")
+        .arg("https://github.com/sponsors/RamazanBerk20")
+        .spawn()
+        .map_err(command_error)?;
+    Ok(())
+}
+
 #[tauri::command]
 async fn trash_prefix(
     state: State<'_, AppState>,
@@ -796,6 +806,7 @@ pub fn run() {
             launch_prefix_tool,
             open_path,
             open_url,
+            open_sponsor_page,
             trash_prefix,
             inspect_legacy_verb,
             run_legacy_verb,

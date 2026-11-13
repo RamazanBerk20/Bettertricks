@@ -81,6 +81,7 @@ export const api = {
     call<void>("launch_prefix_tool", { request }),
   openPath: (path: string) => call<void>("open_path", { path }),
   openUrl: (url: string) => call<void>("open_url", { url }),
+  openSponsorPage: () => call<void>("open_sponsor_page"),
   trashPrefix: (prefixId: UUID, confirmation: string) =>
     call<WinePrefix[]>("trash_prefix", { prefixId, confirmation }),
   selectLegacyVerb: async () => {

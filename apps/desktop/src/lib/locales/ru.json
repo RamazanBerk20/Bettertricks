@@ -415,5 +415,6 @@
   "Keep restore points per prefix": "Точек восстановления на префикс",
   "Older restore points are deleted automatically after a new one is created.": "Старые точки восстановления удаляются автоматически после создания новой.",
   "Unlimited": "Без ограничений",
-  "Restore points use {size}.": "Точки восстановления занимают {size}."
+  "Restore points use {size}.": "Точки восстановления занимают {size}.",
+  "Support development": "Поддержать разработку"
 }

@@ -415,5 +415,6 @@
   "Keep restore points per prefix": "نقاط الاستعادة لكل بادئة",
   "Older restore points are deleted automatically after a new one is created.": "تُحذف نقاط الاستعادة الأقدم تلقائيًا بعد إنشاء نقطة جديدة.",
   "Unlimited": "غير محدود",
-  "Restore points use {size}.": "تشغل نقاط الاستعادة {size}."
+  "Restore points use {size}.": "تشغل نقاط الاستعادة {size}.",
+  "Support development": "دعم التطوير"
 }

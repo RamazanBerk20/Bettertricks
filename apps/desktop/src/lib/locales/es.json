@@ -415,5 +415,6 @@
   "Keep restore points per prefix": "Puntos de restauración por prefijo",
   "Older restore points are deleted automatically after a new one is created.": "Los puntos de restauración antiguos se eliminan automáticamente tras crear uno nuevo.",
   "Unlimited": "Sin límite",
-  "Restore points use {size}.": "Los puntos de restauración ocupan {size}."
+  "Restore points use {size}.": "Los puntos de restauración ocupan {size}.",
+  "Support development": "Apoyar el desarrollo"
 }

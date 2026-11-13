@@ -93,6 +93,11 @@ Read [development setup](docs/development.md), [architecture](docs/architecture.
 [accessibility audit](docs/accessibility.md), and [security policy](SECURITY.md) before adding
 executable recipes.
 
+## Support
+
+Bettertricks is free. If it is useful to you, you can
+[support its development through GitHub Sponsors](https://github.com/sponsors/RamazanBerk20).
+
 ## License
 
 Bettertricks is licensed under `LGPL-2.1-or-later`. Generated Winetricks metadata and

@@ -19,6 +19,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import type { AppSettings, BootstrapPayload, ThemePreference, UUID } from "../types";
+import { api } from "../lib/api";
 import { shortPath } from "../lib/format";
 import { useI18n } from "../lib/i18n";
 import { normalizeLanguagePreference, SUPPORTED_LOCALES } from "../lib/translations";
@@ -205,6 +206,9 @@ export function SettingsView({ data, settings, onSettingsChange, onClearCache, o
               <Button size="small" onClick={onOpenLegacyVerb} disabled={!legacyHostAvailable}><Code /> {t("Choose file")}</Button>
             </SettingRow>
           </SettingsSection>
+          <p className="settings-footnote">
+            <a href="https://github.com/sponsors/RamazanBerk20" onClick={(event) => { event.preventDefault(); void api.openSponsorPage().catch(() => undefined); }}>{t("Support development")}</a>
+          </p>
         </div>
       </div>
 

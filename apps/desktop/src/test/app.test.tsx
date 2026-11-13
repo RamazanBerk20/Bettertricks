@@ -39,6 +39,19 @@ describe("Bettertricks desktop shell", () => {
     expect(screen.getByRole("button", { name: "System" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("keeps the sponsor link on Settings only and opens it through its own command", async () => {
+    const openSponsorPage = vi.spyOn(api, "openSponsorPage").mockResolvedValue(undefined);
+    render(<TooltipProvider><App /></TooltipProvider>);
+
+    await screen.findByRole("heading", { name: "Default prefix" });
+    expect(screen.queryByRole("link", { name: "Support development" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Settings/ }));
+    const link = await screen.findByRole("link", { name: "Support development" });
+    expect(link).toHaveAttribute("href", "https://github.com/sponsors/RamazanBerk20");
+    fireEvent.click(link);
+    expect(openSponsorPage).toHaveBeenCalledTimes(1);
+  });
+
   it("switches and persists the interface language without restarting", async () => {
     const saveSettings = vi.spyOn(api, "saveSettings");
     render(<TooltipProvider><App /></TooltipProvider>);

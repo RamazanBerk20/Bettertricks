@@ -415,5 +415,6 @@
   "Keep restore points per prefix": "プレフィックスごとの復元ポイント数",
   "Older restore points are deleted automatically after a new one is created.": "新しい復元ポイントを作成すると、古い復元ポイントは自動的に削除されます。",
   "Unlimited": "無制限",
-  "Restore points use {size}.": "復元ポイントの使用量: {size}"
+  "Restore points use {size}.": "復元ポイントの使用量: {size}",
+  "Support development": "開発を支援する"
 }

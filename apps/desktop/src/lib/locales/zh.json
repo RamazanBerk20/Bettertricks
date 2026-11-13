@@ -415,5 +415,6 @@
   "Keep restore points per prefix": "每个前缀保留的还原点",
   "Older restore points are deleted automatically after a new one is created.": "创建新的还原点后，较旧的还原点会被自动删除。",
   "Unlimited": "不限",
-  "Restore points use {size}.": "还原点占用 {size}。"
+  "Restore points use {size}.": "还原点占用 {size}。",
+  "Support development": "支持开发"
 }
