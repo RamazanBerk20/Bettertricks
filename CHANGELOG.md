@@ -2,6 +2,19 @@
 
 All notable Bettertricks changes are documented here.
 
+## Unreleased
+
+Upgrade notes:
+
+- No downgrade: once an operation has been recorded as `interrupted` (an operation left running
+  by a crash or quit), a 1.0 binary can no longer read the activity history in that database.
+- Changes to Steam, Lutris, Bottles and Heroic prefixes are now blocked (`runtime_unknown`) when
+  the launcher's Wine/Proton runtime cannot be determined, until a runtime is chosen (Add prefix →
+  Existing prefix with a runtime) or the change is forced. Running system Wine against such a
+  prefix can upgrade and break it.
+- Restore points are kept without limit by default, as in 1.0; a per-prefix limit can be chosen
+  in Settings → Restore points.
+
 ## 1.0 — 2026-07-23
 
 - Ships a recovery-first Tauri desktop application and scripting-friendly Rust CLI for Wine,

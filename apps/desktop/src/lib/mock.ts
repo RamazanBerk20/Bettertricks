@@ -132,6 +132,7 @@ let settings: AppSettings = {
   show_advanced: false,
   reduced_motion: false,
   custom_wine_binary: null,
+  restore_point_retention: 0,
 };
 
 const listeners = new Set<(event: OperationEvent) => void>();
@@ -172,7 +173,7 @@ export const mockBackend = {
       case "operation_history":
         return [...operations] as T;
       case "clear_operation_history": {
-        const active = operations.filter((operation) => !["succeeded", "failed", "cancelled"].includes(operation.state));
+        const active = operations.filter((operation) => !["succeeded", "failed", "cancelled", "interrupted"].includes(operation.state));
         operations.splice(0, operations.length, ...active);
         return [...operations] as T;
       }
@@ -200,6 +201,13 @@ export const mockBackend = {
         const cleared = restorePoints.length;
         restorePoints.splice(0, restorePoints.length);
         return { cleared, protected: 0, restore_points: [] } as T;
+      }
+      case "active_operations":
+        return [] as T;
+      case "delete_restore_point": {
+        const index = restorePoints.findIndex((point) => point.id === String(args?.restorePointId));
+        if (index >= 0) restorePoints.splice(index, 1);
+        return [...restorePoints] as T;
       }
       case "restore_prefix":
       case "open_url":
@@ -255,6 +263,7 @@ function bootstrap(): BootstrapPayload {
         { id: "system", label: "System Wine 11.13", wine_binary: "/usr/bin/wine", wineserver_binary: "/usr/bin/wineserver", version: "wine-11.13", source: "system" },
         { id: "proton", label: "Proton Experimental", wine_binary: "/steam/Proton/files/bin/wine", wineserver_binary: null, version: "Proton 10", source: "steam" },
       ],
+      compatibility_host: { state: "ready", tag: "20260125", path: "/usr/bin/winetricks", origin: "system" },
       data_directory: "/home/user/.local/share/bettertricks",
       cache_directory: "/home/user/.cache/winetricks",
       state_directory: "/home/user/.local/state/bettertricks",
@@ -274,6 +283,7 @@ function bootstrap(): BootstrapPayload {
     restore_points: [...restorePoints],
     catalog_signed: false,
     catalog_rollback_available: false,
+    live_operations: [],
   };
 }
 
@@ -373,7 +383,10 @@ function makePlan(request: OperationRequest): OperationPlan {
     resolved_recipes: request.recipes,
     steps,
     inputs,
-    downloads: selected.flatMap((recipe) => recipe.files.map((file) => ({ recipe_id: recipe.id, file_id: file.id, filename: file.filename, urls: file.urls, cached: importedManualFiles.has(`${recipe.id}:${file.id}`), manual: file.manual }))),
+    downloads: selected.flatMap((recipe) => recipe.files.map((file) => {
+      const cached = importedManualFiles.has(`${recipe.id}:${file.id}`);
+      return { recipe_id: recipe.id, file_id: file.id, filename: file.filename, urls: file.urls, cached, manual: file.manual, cache_state: cached ? "present" as const : file.manual ? "manual_required" as const : "absent" as const };
+    })),
     conflicts: [],
     warnings: [
       ...compatibilityHostWarnings(selected),
@@ -440,6 +453,9 @@ function description(category: string, title: string) {
   return `Install ${title} in the selected Wine prefix.`;
 }
 
+// The browser preview simulates IPC latency; tests run without it so they do not race it.
+const SIMULATED_LATENCY = import.meta.env.MODE !== "test";
+
 function delay(milliseconds: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  return new Promise((resolve) => window.setTimeout(resolve, SIMULATED_LATENCY ? milliseconds : 0));
 }

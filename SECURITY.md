@@ -13,12 +13,14 @@ impact, and whether a malicious catalog, recipe, archive, prefix, or local file 
 
 - Bundled recipes and catalogs activated through a configured Ed25519 trust root are trusted.
 - Metadata-only catalog recipes execute only as a validated catalog-owned identifier through a
-  checksum-pinned Winetricks host whose version exactly matches the active catalog baseline.
-  Missing, modified, or mismatched hosts fail closed before Wine starts.
+  Winetricks host whose version exactly matches the active catalog baseline. The managed host is
+  checksum-pinned by the (signed) catalog manifest; a system `winetricks` is accepted on its
+  version string alone and is not checksum-verified. Missing, modified, or mismatched hosts fail
+  closed before Wine starts.
 - Downloads are checksum-verified before use.
 - Catalog archives reject traversal, links, and special files before activation.
 - The managed compatibility host is downloaded only over HTTPS, capped at 4 MiB, verified against
-  a release-pinned SHA-256 before atomic publication, re-verified before every use, and never
+  the SHA-256 pinned in the active catalog's manifest before atomic publication, re-verified before every use, and never
   invoked through a shell.
 - Custom `.verb` files are arbitrary shell code. They require explicit trust and an available
   Winetricks compatibility host; Bettertricks creates a restore point first.

@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "Onaylamak için {prefix} yazın",
   "Unattended mode": "Katılımsız mod",
   "Uninstaller": "Kaldırıcı",
-  "unknown": "bilinmiyor",
   "Unknown": "Bilinmiyor",
   "Unknown architecture": "Bilinmeyen mimari",
   "Update font rendering registry keys": "Yazı tipi işleme kayıt defteri anahtarlarını güncelle",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Winetricks-uyumlu girişler: {count}",
   "Work in progress": "Çalışma devam ediyor",
   "Working…": "Çalışıyor…",
-  "Your Wine prefixes were not changed.": "Wine önekleriniz değiştirilmedi."
+  "Your Wine prefixes were not changed.": "Wine önekleriniz değiştirilmedi.",
+  "Permanently delete this snapshot? This cannot be undone.": "Bu anlık görüntü kalıcı olarak silinsin mi? Bu işlem geri alınamaz.",
+  "Snapshot deleted": "Anlık görüntü silindi",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "Bu anlık görüntü geri yüklensin mi? Mevcut önek önce Çöp Kutusu'na taşınacak.",
+  "Interrupted": "Yarıda kesildi",
+  "Answer prompt": "İsteme yanıt ver",
+  "Restore snapshot": "Anlık görüntüyü geri yükle",
+  "Delete snapshot": "Anlık görüntüyü sil",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "Bettertricks bu işlem bitmeden kapandı. İşlemden önce alınan anlık görüntüyü geri yükleyin veya silin.",
+  "Another Bettertricks task is changing this prefix.": "Başka bir Bettertricks görevi bu öneki değiştiriyor.",
+  "Busy": "Meşgul",
+  "Keep restore points per prefix": "Önek başına saklanacak geri yükleme noktaları",
+  "Older restore points are deleted automatically after a new one is created.": "Yeni bir geri yükleme noktası oluşturulduktan sonra eski noktalar otomatik olarak silinir.",
+  "Unlimited": "Sınırsız",
+  "Restore points use {size}.": "Geri yükleme noktaları {size} yer kaplıyor."
 }

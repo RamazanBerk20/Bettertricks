@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "输入 {prefix} 确认",
   "Unattended mode": "无人值守模式",
   "Uninstaller": "卸载程序",
-  "unknown": "未知",
   "Unknown": "未知",
   "Unknown architecture": "未知的建筑",
   "Update font rendering registry keys": "更新字体渲染注册表项",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Winetricks兼容条目：{count}",
   "Work in progress": "工作正在进行中",
   "Working…": "工作…",
-  "Your Wine prefixes were not changed.": "您的 Wine 前缀未更改。"
+  "Your Wine prefixes were not changed.": "您的 Wine 前缀未更改。",
+  "Permanently delete this snapshot? This cannot be undone.": "永久删除此快照？此操作无法撤销。",
+  "Snapshot deleted": "快照已删除",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "恢复此快照？当前前缀将先被移到回收站。",
+  "Interrupted": "已中断",
+  "Answer prompt": "回答提示",
+  "Restore snapshot": "恢复快照",
+  "Delete snapshot": "删除快照",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "Bettertricks 在此操作完成前退出。请恢复操作前创建的快照，或将其删除。",
+  "Another Bettertricks task is changing this prefix.": "另一个 Bettertricks 任务正在修改此前缀。",
+  "Busy": "忙碌",
+  "Keep restore points per prefix": "每个前缀保留的还原点",
+  "Older restore points are deleted automatically after a new one is created.": "创建新的还原点后，较旧的还原点会被自动删除。",
+  "Unlimited": "不限",
+  "Restore points use {size}.": "还原点占用 {size}。"
 }

@@ -3,7 +3,9 @@ use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use bettertricks_core::{Catalog, CatalogIndex, CatalogRelease, CatalogSource, CatalogSummary};
+use bettertricks_core::{
+    Catalog, CatalogIndex, CatalogManifest, CatalogRelease, CatalogSummary, CatalogVersion,
+};
 use clap::{Parser, Subcommand};
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
@@ -140,22 +142,9 @@ fn load_catalog(path: &Path) -> Result<(Catalog, serde_json::Value)> {
         &std::fs::read(&manifest_path)
             .with_context(|| format!("read {}", manifest_path.display()))?,
     )?;
-    let version = manifest
-        .get("version")
-        .and_then(serde_json::Value::as_str)
-        .context("manifest has no version")?
-        .to_string();
-    let upstream_tag = manifest
-        .get("upstreamTag")
-        .and_then(serde_json::Value::as_str)
-        .context("manifest has no upstreamTag")?
-        .to_string();
+    let identity = CatalogManifest::read(path)?;
     let catalog = Catalog::load(
-        CatalogSource {
-            path: path.to_path_buf(),
-            version,
-            upstream_tag,
-        },
+        identity.source(path.to_path_buf()),
         path.parent()
             .unwrap_or_else(|| Path::new("."))
             .join(".bettertricks-catalog-cache-probe"),
@@ -171,12 +160,19 @@ fn validate_manifest(summary: &CatalogSummary, manifest: &serde_json::Value) -> 
     if schema != 1 {
         bail!("manifest schema must be 1, found {schema}");
     }
-    if summary.version != format!("winetricks-{}", summary.upstream_tag) {
+    // `winetricks-<tag>`, or `winetricks-<tag>-r<N>` for a recipe fix on the same upstream tag.
+    let version = CatalogVersion::parse(&summary.version);
+    if !version.is_valid() || version.upstream_tag() != summary.upstream_tag {
         bail!(
-            "manifest version {} does not match upstream tag {}",
+            "manifest version {} does not match upstream tag {} (expected winetricks-{}[-rN])",
             summary.version,
+            summary.upstream_tag,
             summary.upstream_tag
         );
+    }
+    // Loading the catalog validated the pin; a published catalog must carry its host.
+    if manifest.get("compatibilityHost").is_none() {
+        bail!("manifest must pin its Winetricks compatibilityHost (tag, url, sha256)");
     }
 
     let native = manifest
@@ -289,8 +285,24 @@ mod tests {
             "upstreamTag": "20260125",
             "generatedRecipes": 1,
             "nativeRecipes": 2,
-            "categories": { "settings": 3 }
+            "categories": { "settings": 3 },
+            "compatibilityHost": { "tag": "20260125", "url": "https://example.test/winetricks", "sha256": "00" }
         })
+    }
+
+    #[test]
+    fn accepts_revisioned_versions_of_the_same_upstream_tag() {
+        let mut summary = summary();
+        summary.version = "winetricks-20260125-r2".into();
+        validate_manifest(&summary, &manifest()).unwrap();
+        summary.version = "winetricks-20260601".into();
+        assert!(validate_manifest(&summary, &manifest()).is_err());
+        let mut unpinned = manifest();
+        unpinned
+            .as_object_mut()
+            .unwrap()
+            .remove("compatibilityHost");
+        assert!(validate_manifest(&self::summary(), &unpinned).is_err());
     }
 
     #[test]

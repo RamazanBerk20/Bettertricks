@@ -24,29 +24,35 @@ import {
 import { api } from "../lib/api";
 import { titleCase } from "../lib/format";
 import { useI18n } from "../lib/i18n";
+import { isTerminal, type OperationEntry } from "../lib/operations";
 import type {
   AppSettings,
   LegacyVerbInfo,
-  OperationEvent,
   OperationOptions,
   OperationPlan,
+  OperationRequest,
+  OperationState,
   PlannedDownload,
   UUID,
   WinePrefix,
+  WineRuntime,
 } from "../types";
 import type { AppView } from "./sidebar";
-import { Badge, Button, ProgressBar, SelectMenu } from "./common";
+import { Badge, Button, ProgressBar, SelectMenu, StatusBadge } from "./common";
 
 export function AddPrefixDialog({
   open,
   onOpenChange,
   onComplete,
+  runtimes,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onComplete: (prefixes: WinePrefix[]) => void;
+  onComplete: (prefixes: WinePrefix[], path: string) => void;
+  runtimes: WineRuntime[];
 }) {
   const { t } = useI18n();
+  const [runtime, setRuntime] = useState("");
   const [mode, setMode] = useState<"existing" | "create">("existing");
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
@@ -63,9 +69,9 @@ export function AddPrefixDialog({
     setError(null);
     try {
       const prefixes = mode === "existing"
-        ? await api.registerPrefix({ name: name.trim(), path: path.trim(), runtime: null })
-        : await api.createPrefix({ name: name.trim(), path: path.trim(), architecture, runtime: null });
-      onComplete(prefixes);
+        ? await api.registerPrefix({ name: name.trim(), path: path.trim(), runtime: runtime || null })
+        : await api.createPrefix({ name: name.trim(), path: path.trim(), architecture, runtime: runtime || null });
+      onComplete(prefixes, path.trim());
       onOpenChange(false);
       setName("");
       setPath("");
@@ -94,6 +100,16 @@ export function AddPrefixDialog({
           <div className="form-stack">
             <label><span>{t("Display name")}</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("My Windows app")} autoFocus /></label>
             <label><span>{t("Prefix directory")}</span><div className="input-with-icon"><input value={path} onChange={(event) => setPath(event.target.value)} placeholder="/home/user/.local/share/wineprefixes/my-app" /><FolderOpen /></div><small>{mode === "create" ? t("The directory must be empty or not exist yet.") : t("Choose a folder containing drive_c and registry files.")}</small></label>
+            <div className="legacy-target">
+              <span>{t("Wine runtime")}</span>
+              <SelectMenu
+                className="legacy-target-trigger"
+                value={runtime}
+                options={[{ value: "", label: t("System Wine") }, ...runtimes.map((item) => ({ value: item.wine_binary, label: item.label }))]}
+                label={t("Wine runtime")}
+                onValueChange={setRuntime}
+              />
+            </div>
             {mode === "create" ? (
               <fieldset><legend>{t("Architecture")}</legend><div className="choice-grid"><Choice active={architecture === "win64"} title={t("64-bit / WoW64")} body={t("Recommended for modern applications")} onClick={() => setArchitecture("win64")} /><Choice active={architecture === "win32"} title={t("32-bit")} body={t("For older applications and runtimes")} onClick={() => setArchitecture("win32")} /></div></fieldset>
             ) : null}
@@ -126,28 +142,42 @@ export function ReviewDialog({
   const [plan, setPlan] = useState<OperationPlan | null>(null);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [restoreTouched, setRestoreTouched] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [importing, setImporting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Review lifecycle: idle → planning → ready ⇄ importing → starting; any step → error (the
+  // last plan stays visible). Each plan request gets an id so a slow response cannot
+  // overwrite a newer one.
+  const [phase, setPhase] = useState<ReviewPhase>({ kind: "idle" });
+  const planRequest = useRef(0);
+  const busy = phase.kind === "planning" || phase.kind === "starting";
+  const importing = phase.kind === "importing" ? phase.key : null;
+  const error = phase.kind === "error" ? phase.message : null;
+  const setError = (message: string) => setPhase({ kind: "error", message });
 
   useEffect(() => {
-    setOptions(defaultOptions(settings, prefix));
-  }, [settings, prefix]);
+    if (open) setOptions(defaultOptions(settings, prefix));
+    // Only reset on open/target changes, not when the prefix list refreshes.
+  }, [open, prefix?.id]);
 
   useEffect(() => {
     setInputValues({});
     setRestoreTouched(false);
     setPlan(null);
-    setImporting(null);
+    setPhase({ kind: "idle" });
   }, [open, prefix?.id, recipeIds.join("\0")]);
+
+  const requestPlan = async (request: OperationRequest): Promise<OperationPlan | null> => {
+    const id = ++planRequest.current;
+    const nextPlan = await api.planOperation(request);
+    return id === planRequest.current ? nextPlan : null;
+  };
 
   useEffect(() => {
     if (!open || !prefix || recipeIds.length === 0) return;
-    setBusy(true);
-    setError(null);
-    api.planOperation({ prefix_id: prefix.id, recipes: recipeIds, input_values: inputValues, options })
+    setPhase({ kind: "planning" });
+    requestPlan({ prefix_id: prefix.id, recipes: recipeIds, input_values: inputValues, options })
       .then((nextPlan) => {
+        if (!nextPlan) return;
         setPlan(nextPlan);
+        setPhase({ kind: "ready" });
         if (nextPlan.restore_recommended && !restoreTouched) {
           setOptions((current) => current.create_restore_point ? current : { ...current, create_restore_point: true });
         }
@@ -156,9 +186,8 @@ export function ReviewDialog({
           current[input.key] ?? input.value ?? "",
         ])));
       })
-      .catch((reason) => setError(String(reason)))
-      .finally(() => setBusy(false));
-  }, [open, prefix, recipeIds.join("\0"), options]);
+      .catch((reason) => setError(String(reason)));
+  }, [open, prefix?.id, recipeIds.join("\0"), options]);
 
   const start = async () => {
     if (!plan || !prefix) return;
@@ -167,34 +196,33 @@ export function ReviewDialog({
       setError(t("{field} is required.", { field: missing.label }));
       return;
     }
-    setBusy(true);
+    setPhase({ kind: "starting" });
     try {
-      const verifiedPlan = await api.planOperation({
+      const verifiedPlan = await requestPlan({
         prefix_id: prefix.id,
         recipes: recipeIds,
         input_values: Object.fromEntries(plan.inputs.map((input) => [input.key, inputValues[input.key] ?? input.value ?? ""])),
         options,
       });
+      if (!verifiedPlan) return;
       const operationId = await api.startOperation(verifiedPlan);
       onStarted(operationId, verifiedPlan);
+      setPhase({ kind: "idle" });
       onOpenChange(false);
     } catch (reason) {
       setError(String(reason));
-    } finally {
-      setBusy(false);
     }
   };
 
   const importManualDownload = async (download: PlannedDownload) => {
     if (!prefix) return;
     const key = `${download.recipe_id}:${download.file_id}`;
-    setError(null);
     try {
       const path = await api.selectManualFile(download.filename);
       if (!path) return;
-      setImporting(key);
+      setPhase({ kind: "importing", key });
       await api.importManualFile(download.recipe_id, download.file_id, path);
-      const nextPlan = await api.planOperation({
+      const nextPlan = await requestPlan({
         prefix_id: prefix.id,
         recipes: recipeIds,
         input_values: Object.fromEntries((plan?.inputs ?? []).map((input) => [
@@ -203,16 +231,14 @@ export function ReviewDialog({
         ])),
         options,
       });
-      setPlan(nextPlan);
+      if (nextPlan) setPlan(nextPlan);
+      setPhase({ kind: "ready" });
     } catch (reason) {
       setError(String(reason));
-    } finally {
-      setImporting(null);
     }
   };
 
   const openDownloadSource = async (url: string) => {
-    setError(null);
     try {
       await api.openUrl(url);
     } catch (reason) {
@@ -224,7 +250,7 @@ export function ReviewDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content className="dialog-content review-dialog" aria-describedby="review-description">
+        <Dialog.Content className="dialog-content review-dialog" aria-describedby="review-description" data-review-state={phase.kind}>
           <Dialog.Close className="dialog-close" aria-label={t("Close")}><X /></Dialog.Close>
           <div className="review-heading">
             <div className="dialog-icon"><ShieldCheck size={22} /></div>
@@ -249,7 +275,7 @@ export function ReviewDialog({
                       return (
                         <div className="download-review" key={key}>
                           <DownloadSimple />
-                          <span><strong>{download.filename}</strong><small>{download.cached ? t("Cached; checksum verified before use") : download.manual ? t("Choose the exact upstream file; Bettertricks verifies its checksum") : t("Checksum verified after download")}</small></span>
+                          <span><strong>{download.filename}</strong><small>{cacheLabel(download, t)}</small></span>
                           {download.cached ? <CheckCircle weight="fill" /> : download.manual ? (
                             <div className="download-review-actions">
                               {sourceUrl ? <Button size="small" variant="ghost" onClick={() => openDownloadSource(sourceUrl)}><ArrowRight className="directional-icon" /> {t("Open source")}</Button> : null}
@@ -303,6 +329,7 @@ export function LegacyVerbDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Pick the target when the dialog opens; a prefix-list refresh must not change the choice.
   useEffect(() => {
     if (open) setPrefixId(selectedPrefixId ?? prefixes[0]?.id ?? "");
     else {
@@ -311,7 +338,7 @@ export function LegacyVerbDialog({
       setTrusted(false);
       setError(null);
     }
-  }, [open, selectedPrefixId, prefixes]);
+  }, [open]);
 
   const choose = async () => {
     setError(null);
@@ -441,7 +468,7 @@ export function CommandPalette({ open, onOpenChange, prefixes, onNavigate, onPre
 export function OperationDrawer({
   operationId,
   plan,
-  events,
+  entry,
   onClose,
   onCancel,
   onRespond,
@@ -449,7 +476,7 @@ export function OperationDrawer({
 }: {
   operationId: UUID | null;
   plan: OperationPlan | null;
-  events: OperationEvent[];
+  entry: OperationEntry | null;
   onClose: () => void;
   onCancel: () => void;
   onRespond: (promptId: UUID, choiceId: string) => Promise<void>;
@@ -459,24 +486,18 @@ export function OperationDrawer({
   const [responding, setResponding] = useState(false);
   const [responseError, setResponseError] = useState<string | null>(null);
   const promptRef = useRef<HTMLElement>(null);
-  const promptId = events.at(-1)?.prompt?.id;
-  const failures = useMemo(() => {
-    const byRecipe = new Map<string, NonNullable<OperationEvent["failure"]>>();
-    for (const event of events) {
-      if (event.failure) byRecipe.set(event.failure.recipe_id, event.failure);
-    }
-    return [...byRecipe.values()];
-  }, [events]);
+  const prompt = entry?.prompt ?? null;
   useEffect(() => {
     setResponding(false);
     setResponseError(null);
-    if (promptId) promptRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
-  }, [promptId]);
+    if (prompt?.id) promptRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [prompt?.id]);
   if (!operationId || !plan) return null;
-  const latest = events.at(-1);
-  const state = latest?.state ?? "planned";
-  const finished = ["succeeded", "failed", "cancelled"].includes(state);
-  const logs = events.filter((event) => event.log_line).map((event) => event.log_line);
+  const latest = entry?.latest ?? null;
+  const state: OperationState = entry?.state ?? "planned";
+  const finished = isTerminal(state);
+  const failures = [...(entry?.failures.values() ?? [])];
+  const logs = entry?.logs ?? [];
   const retryableRecipeIds = failures.length
     ? failures.map((failure) => failure.recipe_id)
     : plan.requested_recipes;
@@ -490,25 +511,43 @@ export function OperationDrawer({
       setResponding(false);
     }
   };
+  const footer = (() => {
+    switch (state) {
+      case "succeeded":
+      case "cancelled":
+      case "interrupted":
+        return <Button variant="primary" onClick={onClose}>{t("Done")}</Button>;
+      case "failed":
+        return <>{retryableRecipeIds.length ? <Button onClick={() => onRetry(retryableRecipeIds)}><ArrowClockwise /> {t("Retry all ({count})", { count: formatNumber(retryableRecipeIds.length) })}</Button> : null}<Button variant="primary" onClick={onClose}>{t("Done")}</Button></>;
+      case "cancelling":
+        return <Button variant="danger" disabled><SpinnerGap className="spin" /> {t("Cancelling")}</Button>;
+      case "waiting_for_user":
+        return null;
+      case "planned":
+      case "preflight":
+      case "running":
+        return <Button variant="danger" onClick={onCancel}>{t("Cancel operation")}</Button>;
+    }
+  })();
   return (
-    <aside className="operation-drawer" aria-live="polite" aria-label={t("Current operation")}>
+    <aside className="operation-drawer" aria-live="polite" aria-label={t("Current operation")} data-operation-state={state} data-operation-id={operationId}>
       <header>
         <div className={clsx("operation-drawer-icon", `state-${state}`)}>
-          {state === "succeeded" ? <CheckCircle weight="fill" /> : state === "failed" ? <WarningCircle weight="fill" /> : <SpinnerGap className={!finished ? "spin" : ""} />}
+          {state === "succeeded" ? <CheckCircle weight="fill" /> : state === "failed" || state === "interrupted" ? <WarningCircle weight="fill" /> : <SpinnerGap className={!finished ? "spin" : ""} />}
         </div>
-        <div><small>{finished ? t("Operation result") : t("Operation in progress")}</small><strong dir="auto">{latest?.title ?? t("Preparing changes")}</strong></div>
+        <div><small>{finished ? t("Operation result") : t("Operation in progress")} · <StatusBadge state={state} /></small><strong dir="auto">{latest?.title ?? t("Preparing changes")}</strong></div>
         <button onClick={onClose} aria-label={finished ? t("Close activity drawer") : t("Hide activity drawer")} title={finished ? t("Close") : t("Hide; the operation will continue in the background")}><X /></button>
       </header>
       <div className="drawer-progress">
         <ProgressBar value={latest?.progress ?? 0} label={t("{step} of {total} steps", { step: formatNumber(latest?.step ?? 0), total: formatNumber(latest?.total_steps ?? plan.steps.length) })} />
         <p dir="auto">{latest?.detail ?? t("Applying {recipes} to {prefix}", { recipes: plan.resolved_recipes.join(", "), prefix: plan.prefix.name })}</p>
       </div>
-      {latest?.prompt ? (
-        <section ref={promptRef} className="drawer-prompt" role="alertdialog" aria-labelledby={`prompt-${latest.prompt.id}`} aria-describedby={`prompt-message-${latest.prompt.id}`}>
-          <strong id={`prompt-${latest.prompt.id}`} dir="auto">{latest.prompt.title}</strong>
-          <p id={`prompt-message-${latest.prompt.id}`} dir="auto">{latest.prompt.message}</p>
+      {state === "waiting_for_user" && prompt ? (
+        <section ref={promptRef} className="drawer-prompt" role="alertdialog" aria-labelledby={`prompt-${prompt.id}`} aria-describedby={`prompt-message-${prompt.id}`}>
+          <strong id={`prompt-${prompt.id}`} dir="auto">{prompt.title}</strong>
+          <p id={`prompt-message-${prompt.id}`} dir="auto">{prompt.message}</p>
           {responseError ? <small role="alert" dir="auto">{responseError}</small> : null}
-          <div>{latest.prompt.choices.map((choice) => <Button key={choice.id} variant={choice.destructive ? "danger" : choice.id === "continue" ? "primary" : "secondary"} disabled={responding} onClick={() => respond(latest.prompt!.id, choice.id)}>{responding ? <SpinnerGap className="spin" /> : null}<bdi>{choice.label}</bdi></Button>)}</div>
+          <div>{prompt.choices.map((choice) => <Button key={choice.id} variant={choice.destructive ? "danger" : choice.id === "continue" ? "primary" : "secondary"} disabled={responding} onClick={() => respond(prompt.id, choice.id)}>{responding ? <SpinnerGap className="spin" /> : null}<bdi>{choice.label}</bdi></Button>)}</div>
         </section>
       ) : null}
       <div className="drawer-timeline">
@@ -525,7 +564,7 @@ export function OperationDrawer({
           </section>
         ) : null}
         <div className="drawer-events">
-          {events.filter((event) => !event.log_line).slice(-10).map((event) => (
+          {(entry?.timeline ?? []).slice(-10).map((event) => (
             <div className={clsx("drawer-event", event === latest && "current", event.failure && "failed")} key={event.sequence}>
               <span>{event.state === "succeeded" ? <Check /> : event.failure ? <WarningCircle weight="fill" /> : event.step ? formatNumber(event.step) : "·"}</span>
               <div><strong dir="auto">{event.title}</strong><small>{event.recipe_id ? titleCase(event.recipe_id) : formatTime(event.timestamp)}</small></div>
@@ -533,16 +572,36 @@ export function OperationDrawer({
           ))}
         </div>
       </div>
-      {logs.length ? <details className="drawer-logs"><summary>{t("Diagnostic log")} <Badge>{formatNumber(logs.length)}</Badge></summary><pre>{logs.join("\n")}</pre></details> : null}
-      <footer>
-        {state === "failed" && retryableRecipeIds.length ? <Button onClick={() => onRetry(retryableRecipeIds)}><ArrowClockwise /> {t("Retry all ({count})", { count: formatNumber(retryableRecipeIds.length) })}</Button> : null}
-        {finished ? <Button variant="primary" onClick={onClose}>{t("Done")}</Button> : latest?.prompt ? null : <Button variant="danger" onClick={onCancel}>{t("Cancel operation")}</Button>}
-      </footer>
+      {logs.length ? <DiagnosticLog logs={logs} count={logs.length} /> : null}
+      <footer>{footer}</footer>
     </aside>
   );
+}
+
+/** Joins the log only while it is expanded, so a long log does not cost every render. */
+function DiagnosticLog({ logs, count }: { logs: string[]; count: number }) {
+  const { t, formatNumber } = useI18n();
+  const [open, setOpen] = useState(false);
+  return <details className="drawer-logs" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>{t("Diagnostic log")} <Badge>{formatNumber(count)}</Badge></summary>{open ? <pre>{logs.join("\n")}</pre> : null}</details>;
 }
 
 function OptionCheck({ checked, onChange, icon, title, body }: { checked: boolean; onChange: (checked: boolean) => void; icon: React.ReactNode; title: string; body: string }) { return <button className={clsx("option-check", checked && "checked")} aria-pressed={checked} onClick={() => onChange(!checked)}><span className="option-check-icon">{icon}</span><span><strong>{title}</strong><small>{body}</small></span><i>{checked ? <Check weight="bold" /> : null}</i></button>; }
 function Choice({ active, title, body, onClick }: { active: boolean; title: string; body: string; onClick: () => void }) { return <button type="button" className={clsx("choice-card", active && "active")} aria-pressed={active} onClick={onClick}><span>{active ? <Check weight="bold" /> : null}</span><strong>{title}</strong><small>{body}</small></button>; }
 function InlineError({ message }: { message: string }) { return <div className="inline-error" role="alert"><WarningCircle weight="fill" /><span dir="auto">{message}</span></div>; }
+type ReviewPhase =
+  | { kind: "idle" }
+  | { kind: "planning" }
+  | { kind: "ready" }
+  | { kind: "importing"; key: string }
+  | { kind: "starting" }
+  | { kind: "error"; message: string };
+
+function cacheLabel(download: PlannedDownload, t: (key: string) => string) {
+  const state = download.cache_state ?? (download.cached ? "present" : download.manual ? "manual_required" : "absent");
+  switch (state) {
+    case "present": return t("Cached; checksum verified before use");
+    case "manual_required": return t("Choose the exact upstream file; Bettertricks verifies its checksum");
+    case "absent": return t("Checksum verified after download");
+  }
+}
 function defaultOptions(settings: AppSettings, prefix: WinePrefix | null): OperationOptions { return { force: false, unattended: false, verify: true, no_clean: false, isolate: false, torify: false, country: null, create_restore_point: Boolean(prefix?.managed && settings.restore_before_managed_changes) }; }

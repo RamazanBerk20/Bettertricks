@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 1420",
-    "dev:web": "vite --host 0.0.0.0 --port 1420",
+    "dev": "vite --port 1420",
+    "dev:web": "vite --port 1420",
     "build": "tsc -b && vite build",
     "build:web": "pnpm build",
     "check": "tsc -b --pretty false",

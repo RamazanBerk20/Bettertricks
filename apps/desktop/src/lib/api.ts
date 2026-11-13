@@ -11,6 +11,7 @@ import type {
   CatalogSummary,
   CatalogUpdateStatus,
   LegacyVerbInfo,
+  LiveOperation,
   OperationEvent,
   OperationPlan,
   OperationRecord,
@@ -55,6 +56,7 @@ export const api = {
   startOperation: (plan: OperationPlan) => call<UUID>("start_operation", { plan }),
   cancelOperation: (operationId: UUID) =>
     call<void>("cancel_operation", { operationId }),
+  activeOperations: () => call<LiveOperation[]>("active_operations"),
   respondToPrompt: (response: {
     operation_id: UUID;
     prompt_id: UUID;
@@ -71,8 +73,10 @@ export const api = {
     call<RestorePoint>("create_restore_point", { prefixId }),
   clearRestorePoints: () =>
     call<ClearRestorePointsResult>("clear_restore_points"),
-  restorePrefix: (restorePointId: UUID) =>
-    call<void>("restore_prefix", { restorePointId }),
+  restorePrefix: (restorePointId: UUID, replaceExisting = false) =>
+    call<void>("restore_prefix", { restorePointId, replaceExisting }),
+  deleteRestorePoint: (restorePointId: UUID) =>
+    call<RestorePoint[]>("delete_restore_point", { restorePointId }),
   launchPrefixTool: (request: { prefix_id: UUID; tool: string; file?: string }) =>
     call<void>("launch_prefix_tool", { request }),
   openPath: (path: string) => call<void>("open_path", { path }),

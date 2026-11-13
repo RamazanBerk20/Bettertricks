@@ -4,9 +4,9 @@ use uuid::Uuid;
 
 use crate::system::find_command;
 use crate::{
-    AppPaths, ArchiveFormat, BettertricksError, Catalog, LegacyVerbHost, OperationPlan,
-    OperationRequest, PlanIssue, PlannedDownload, PlannedInput, PlannedStep, Recipe,
-    RecipeMaturity, RecipeStep, Result, WinePrefix,
+    AppPaths, ArchiveFormat, BettertricksError, Catalog, DetectKind, HostStatus, LegacyVerbHost,
+    OperationPlan, OperationRequest, PlanIssue, PlannedDownload, PlannedInput, PlannedStep,
+    PrefixStatus, Recipe, RecipeMaturity, RecipeStep, Result, WinePrefix,
 };
 
 #[derive(Clone)]
@@ -16,24 +16,38 @@ pub struct Planner {
 }
 
 impl Planner {
+    /// A planner with no Winetricks host (tracked recipes always get the missing-host
+    /// warning) that never executes anything; the app and CLI use [`Self::with_paths`].
     pub fn new(catalog: Catalog) -> Self {
         Self {
             catalog,
-            legacy_host: LegacyVerbHost::discover(),
+            legacy_host: LegacyVerbHost::none(),
         }
     }
 
     pub fn with_paths(catalog: Catalog, paths: &AppPaths) -> Self {
         Self {
+            legacy_host: LegacyVerbHost::for_catalog(paths, &catalog),
             catalog,
-            legacy_host: LegacyVerbHost::discover_with_paths(paths),
         }
     }
 
-    pub fn plan(&self, request: OperationRequest, prefix: WinePrefix) -> Result<OperationPlan> {
+    pub fn plan(&self, mut request: OperationRequest, prefix: WinePrefix) -> Result<OperationPlan> {
         if request.recipes.is_empty() {
             return Err(BettertricksError::Recipe(
                 "select at least one recipe".into(),
+            ));
+        }
+
+        // Normalise first (`--country us` worked in v1.0), then validate.
+        if let Some(country) = &mut request.options.country {
+            *country = country.trim().to_ascii_uppercase();
+        }
+        if let Some(country) = &request.options.country
+            && (country.len() != 2 || !country.bytes().all(|byte| byte.is_ascii_uppercase()))
+        {
+            return Err(BettertricksError::Recipe(
+                "country must be a two-letter ISO code such as US".into(),
             ));
         }
 
@@ -45,9 +59,51 @@ impl Planner {
         }
 
         let installed: HashSet<_> = prefix.installed_verbs.iter().cloned().collect();
-        let selected: HashSet<_> = resolved.iter().cloned().collect();
         let mut conflicts = Vec::new();
         let mut warnings = Vec::new();
+        // Dependencies the user did not ask for are skipped when already present, unless forced.
+        let already_installed = if request.options.force {
+            Vec::new()
+        } else {
+            let mut skipped = Vec::new();
+            for id in &resolved {
+                if !request.recipes.contains(id)
+                    && (installed.contains(id) || detected(&self.catalog.get(id)?, &prefix))
+                {
+                    skipped.push(id.clone());
+                }
+            }
+            skipped
+        };
+        resolved.retain(|id| !already_installed.contains(id));
+        if !already_installed.is_empty() {
+            warnings.push(PlanIssue {
+                code: "already_installed".into(),
+                title: "Installed dependencies will be skipped".into(),
+                message: format!(
+                    "Already present in this prefix: {}. Enable force to reinstall them.",
+                    already_installed.join(", ")
+                ),
+                recipe_id: None,
+            });
+        }
+        let selected: HashSet<_> = resolved.iter().cloned().collect();
+        if prefix.status == PrefixStatus::Busy {
+            conflicts.push(PlanIssue {
+                code: "prefix_busy".into(),
+                title: "This prefix is busy".into(),
+                message: "Another Bettertricks task is changing this prefix. Wait for it to finish, then review again.".into(),
+                recipe_id: None,
+            });
+        }
+        if prefix.managed && prefix.runtime.is_none() {
+            conflicts.push(PlanIssue {
+                code: "runtime_unknown".into(),
+                title: "The launcher's Wine runtime was not found".into(),
+                message: "Bettertricks could not determine which Proton or Wine build owns this prefix. Running system Wine against it can upgrade and break the prefix; start the game once from its launcher, or enable force to continue anyway.".into(),
+                recipe_id: None,
+            });
+        }
         let mut steps = Vec::new();
         let mut downloads = Vec::new();
         let mut inputs = Vec::new();
@@ -84,7 +140,13 @@ impl Planner {
                     label: format!("Run {} through Winetricks", recipe.id),
                     destructive: true,
                 });
-                if !self.legacy_host.available() && missing_tools.insert("winetricks") {
+                if !missing_tools.contains("winetricks")
+                    && !matches!(
+                        self.legacy_host.status(&recipe.source.upstream_tag),
+                        HostStatus::Ready { .. }
+                    )
+                {
+                    missing_tools.insert("winetricks");
                     warnings.push(PlanIssue {
                         code: "missing_tool".into(),
                         title: "Winetricks is required".into(),
@@ -110,6 +172,7 @@ impl Planner {
                     urls: file.urls.clone(),
                     cached: self.catalog.cache_path(&recipe.id, file).is_file(),
                     manual: file.manual,
+                    cache_state: self.catalog.cache_state(&recipe.id, file),
                 });
             }
             for input in &recipe.inputs {
@@ -307,6 +370,31 @@ pub(crate) fn recipe_dependency_ids(recipe: &Recipe) -> Vec<&str> {
     dependencies.sort_unstable();
     dependencies.dedup();
     dependencies
+}
+
+/// A recipe counts as present when it declares detection rules and every one matches.
+fn detected(recipe: &Recipe, prefix: &WinePrefix) -> bool {
+    !recipe.detect.is_empty()
+        && recipe.detect.iter().all(|rule| {
+            let mut path = rule.path.clone();
+            for (marker, replacement) in [
+                ("${prefix}", prefix.path.clone()),
+                ("${drive_c}", prefix.path.join("drive_c")),
+                ("${windows}", prefix.path.join("drive_c/windows")),
+                ("${system32}", prefix.path.join("drive_c/windows/system32")),
+                ("${syswow64}", prefix.path.join("drive_c/windows/syswow64")),
+            ] {
+                path = path.replace(marker, replacement.to_string_lossy().as_ref());
+            }
+            if path.contains("${") {
+                return false;
+            }
+            let path = std::path::Path::new(&path);
+            match rule.kind {
+                DetectKind::File => path.is_file(),
+                DetectKind::Directory => path.is_dir(),
+            }
+        })
 }
 
 fn validate_input_value(key: &str, value: &str) -> Result<()> {
@@ -512,6 +600,7 @@ upstream_verb = "top"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let plan = planner
             .plan(
@@ -525,6 +614,70 @@ upstream_verb = "top"
             )
             .unwrap();
         assert_eq!(plan.resolved_recipes, ["base", "top"]);
+    }
+
+    #[test]
+    fn skips_installed_dependencies_unless_forced_and_validates_country() {
+        let temp = tempfile::tempdir().unwrap();
+        for (id, dependencies) in [("base", ""), ("top", "dependencies = [\"base\"]")] {
+            std::fs::write(
+                temp.path().join(format!("{id}.toml")),
+                format!("schema=1\nid=\"{id}\"\ncategory=\"dlls\"\ntitle=\"{id}\"\nmaturity=\"native\"\n{dependencies}\n[[steps]]\ntype=\"native_action\"\naction=\"noop\"\n[source]\nupstream_tag=\"test\"\nupstream_verb=\"{id}\"\n"),
+            )
+            .unwrap();
+        }
+        let catalog = Catalog::load(
+            CatalogSource {
+                path: temp.path().into(),
+                version: "test".into(),
+                upstream_tag: "test".into(),
+            },
+            temp.path().join("cache"),
+        )
+        .unwrap();
+        let prefix = WinePrefix {
+            id: Uuid::new_v4(),
+            name: "Test".into(),
+            path: temp.path().join("prefix"),
+            source: PrefixSource::Manual,
+            architecture: PrefixArchitecture::Win64,
+            runtime: None,
+            runtime_label: None,
+            managed: false,
+            exists: true,
+            installed_verbs: vec!["base".into()],
+            size_bytes: None,
+            last_modified: None,
+            status: Default::default(),
+        };
+        let request = |force: bool, country: Option<&str>| OperationRequest {
+            prefix_id: prefix.id,
+            recipes: vec!["top".into()],
+            input_values: Default::default(),
+            options: crate::OperationOptions {
+                force,
+                country: country.map(str::to_owned),
+                ..Default::default()
+            },
+        };
+        let planner = Planner::new(catalog);
+        let plan = planner.plan(request(false, None), prefix.clone()).unwrap();
+        assert_eq!(plan.resolved_recipes, ["top"]);
+        assert!(
+            plan.warnings
+                .iter()
+                .any(|warning| warning.code == "already_installed")
+        );
+        let forced = planner
+            .plan(request(true, Some("us")), prefix.clone())
+            .unwrap();
+        assert_eq!(forced.options.country.as_deref(), Some("US"));
+        assert_eq!(forced.resolved_recipes, ["base", "top"]);
+        assert!(
+            planner
+                .plan(request(false, Some("us; rm -rf")), prefix)
+                .is_err()
+        );
     }
 
     #[test]
@@ -561,6 +714,7 @@ upstream_verb = "top"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
 
         let plan = Planner::new(catalog)
@@ -637,6 +791,7 @@ upstream_verb = "top"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let plan = Planner::new(catalog)
             .plan(
@@ -702,6 +857,7 @@ upstream_verb = "midi"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let input_values = [("midi.device".into(), "FluidSynth".into())]
             .into_iter()

@@ -1,4 +1,9 @@
 export const WINETRICKS_BASELINE = "20260125";
+export const WINETRICKS_HOST = {
+  tag: WINETRICKS_BASELINE,
+  url: `https://raw.githubusercontent.com/Winetricks/winetricks/${WINETRICKS_BASELINE}/src/winetricks`,
+  sha256: "431f82fc74000e6c864409f1d8fb495d696c03928808e3e8acffc45179312a7b",
+};
 export const WINETRICKS_BUILTIN_DLL_COUNT = 720;
 export const WINETRICKS_BUILTIN_DLL_SHA256 = "5b0c10cdd6b4eff0e913f63187c9c664d6f698aa5b18688b366fe1545001d03b";
 

@@ -12,6 +12,8 @@ use crate::{
     prefix::directory_size,
 };
 
+const QUIESCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
 #[derive(Clone)]
 pub struct RecoveryManager {
     paths: AppPaths,
@@ -36,6 +38,18 @@ impl RecoveryManager {
         if !prefix.path.is_dir() {
             return Err(BettertricksError::PrefixNotFound(
                 prefix.path.display().to_string(),
+            ));
+        }
+        // wineserver keeps registry changes in memory; snapshot only once it has flushed.
+        if !crate::process::wineserver_idle(
+            &crate::operation::wine_tool(prefix, "wineserver"),
+            &prefix.path,
+            QUIESCE_TIMEOUT,
+        )
+        .await
+        {
+            return Err(BettertricksError::Busy(
+                "programs are still running in this prefix; close them before creating a restore point".into(),
             ));
         }
         let id = Uuid::new_v4();
@@ -115,12 +129,73 @@ impl RecoveryManager {
             created_at: Utc::now(),
             size_bytes,
             operation_id,
+            prefix_source: Some(prefix.source),
+            runtime: prefix.runtime.clone(),
         };
         if let Err(error) = self.store.add_restore_point(&point) {
             remove_path(&point.storage_path).await;
             return Err(error);
         }
+        if let Err(error) = self.apply_retention(prefix.id).await {
+            tracing::warn!(%error, "could not prune old restore points");
+        }
         Ok(point)
+    }
+
+    /// Keeps the newest `restore_point_retention` points of a prefix (0 keeps all); points
+    /// still attached to a live operation are never pruned. Caller holds the recovery lock.
+    async fn apply_retention(&self, prefix_id: Uuid) -> Result<()> {
+        let keep = self.store.settings()?.restore_point_retention;
+        if keep == 0 {
+            return Ok(());
+        }
+        for point in self
+            .store
+            .restore_points(Some(prefix_id))?
+            .into_iter()
+            .skip(keep)
+        {
+            if !self.store.restore_point_is_protected(&point)? {
+                self.delete_locked(&point).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Permanently deletes one restore point unless its operation is still live.
+    pub async fn delete(&self, id: Uuid) -> Result<()> {
+        let _recovery_guard = self.store.lock_recovery().await;
+        let point = self
+            .store
+            .restore_points(None)?
+            .into_iter()
+            .find(|point| point.id == id)
+            .ok_or_else(|| BettertricksError::OperationNotFound(id.to_string()))?;
+        if self.store.restore_point_is_protected(&point)? {
+            return Err(BettertricksError::Busy(
+                "this restore point belongs to an operation that is still running".into(),
+            ));
+        }
+        self.delete_locked(&point).await
+    }
+
+    async fn delete_locked(&self, point: &RestorePoint) -> Result<()> {
+        match tokio::fs::symlink_metadata(&point.storage_path).await {
+            Ok(_) => {
+                let storage_path = self.validated_storage_path(point)?;
+                remove_path_checked(&storage_path).await?;
+            }
+            // A stale row is safe to forget: there is no filesystem object to remove.
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        self.store.remove_restore_point(point.id)?;
+        if let Some(parent) = point.storage_path.parent()
+            && parent != self.paths.backups
+        {
+            let _ = tokio::fs::remove_dir(parent).await;
+        }
+        Ok(())
     }
 
     pub async fn restore(&self, point: &RestorePoint) -> Result<()> {
@@ -225,27 +300,8 @@ impl RecoveryManager {
                 summary.protected += 1;
                 continue;
             }
-
-            match tokio::fs::symlink_metadata(&point.storage_path).await {
-                Ok(_) => {
-                    let storage_path = self.validated_storage_path(&point)?;
-                    remove_path_checked(&storage_path).await?;
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    // A stale database row is safe to forget because there is no
-                    // corresponding filesystem object to remove.
-                }
-                Err(error) => return Err(error.into()),
-            }
-
-            if self.store.remove_restore_point(point.id)? {
-                summary.cleared += 1;
-            }
-            if let Some(parent) = point.storage_path.parent()
-                && parent != self.paths.backups
-            {
-                let _ = tokio::fs::remove_dir(parent).await;
-            }
+            self.delete_locked(&point).await?;
+            summary.cleared += 1;
         }
 
         Ok(summary)
@@ -395,6 +451,8 @@ mod tests {
             created_at: Utc::now(),
             size_bytes: None,
             operation_id: None,
+            prefix_source: None,
+            runtime: None,
         }
     }
 
@@ -519,6 +577,11 @@ mod tests {
         assert_eq!(remaining.len(), 1);
         assert_eq!(remaining[0].id, protected.id);
 
+        assert!(manager.delete(protected.id).await.is_err());
+        // After startup reconciliation the orphaned operation is interrupted, which releases
+        // its snapshot for restore or deletion.
+        store.mark_interrupted(operation.id, "Interrupted").unwrap();
+        assert!(!store.restore_point_is_protected(&protected).unwrap());
         operation.state = OperationState::Succeeded;
         operation.finished_at = Some(Utc::now());
         store.upsert_operation(&operation).unwrap();

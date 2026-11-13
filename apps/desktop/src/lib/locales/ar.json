@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "اكتب {prefix} للتأكيد",
   "Unattended mode": "الوضع غير المراقب",
   "Uninstaller": "برنامج إلغاء التثبيت",
-  "unknown": "غير معروف",
   "Unknown": "غير معروف",
   "Unknown architecture": "هندسة معمارية غير معروفة",
   "Update font rendering registry keys": "تحديث مفاتيح التسجيل لعرض الخط",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Winetricks-الإدخالات المتوافقة: {count}",
   "Work in progress": "العمل قيد التقدم",
   "Working…": "العمل…",
-  "Your Wine prefixes were not changed.": "لم يتم تغيير البادئات Wine الخاصة بك."
+  "Your Wine prefixes were not changed.": "لم يتم تغيير البادئات Wine الخاصة بك.",
+  "Permanently delete this snapshot? This cannot be undone.": "حذف هذه اللقطة نهائيًا؟ لا يمكن التراجع عن ذلك.",
+  "Snapshot deleted": "تم حذف اللقطة",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "استعادة هذه اللقطة؟ سيُنقل البادئة الحالية إلى سلة المهملات أولًا.",
+  "Interrupted": "مقاطَعة",
+  "Answer prompt": "الرد على الطلب",
+  "Restore snapshot": "استعادة اللقطة",
+  "Delete snapshot": "حذف اللقطة",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "أُغلق Bettertricks قبل انتهاء هذه العملية. استعد اللقطة المأخوذة قبلها أو احذفها.",
+  "Another Bettertricks task is changing this prefix.": "هناك مهمة أخرى من Bettertricks تعدّل هذه البادئة.",
+  "Busy": "مشغول",
+  "Keep restore points per prefix": "نقاط الاستعادة لكل بادئة",
+  "Older restore points are deleted automatically after a new one is created.": "تُحذف نقاط الاستعادة الأقدم تلقائيًا بعد إنشاء نقطة جديدة.",
+  "Unlimited": "غير محدود",
+  "Restore points use {size}.": "تشغل نقاط الاستعادة {size}."
 }

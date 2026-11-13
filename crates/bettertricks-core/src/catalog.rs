@@ -8,8 +8,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use walkdir::WalkDir;
 
 use crate::{
-    BettertricksError, CatalogQuery, CatalogSummary, PrefixArchitecture, Recipe, RecipeListItem,
-    RecipeMaturity, Result, WinePrefix,
+    BettertricksError, CacheState, CatalogQuery, CatalogSummary, HostPin,
+    MANAGED_WINETRICKS_SHA256, MANAGED_WINETRICKS_TAG, MANAGED_WINETRICKS_URL, PrefixArchitecture,
+    Recipe, RecipeListItem, RecipeMaturity, Result, WinePrefix,
 };
 
 #[derive(Debug, Clone)]
@@ -28,6 +29,46 @@ pub struct Catalog {
 struct CatalogInner {
     source: CatalogSource,
     recipes: HashMap<String, Recipe>,
+    host: Option<HostPin>,
+}
+
+/// The identity fields of `manifest.json`, shared by the desktop app, the CLI and the updater.
+#[derive(Debug, Clone, Default)]
+pub struct CatalogManifest {
+    pub version: String,
+    pub upstream_tag: String,
+    pub compatibility_host: Option<HostPin>,
+}
+
+impl CatalogManifest {
+    pub fn read(root: &Path) -> Result<Self> {
+        let value: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(root.join("manifest.json"))?)?;
+        let text = |key: &str| {
+            value
+                .get(key)
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| BettertricksError::Catalog(format!("manifest has no {key}")))
+        };
+        let compatibility_host = value
+            .get("compatibilityHost")
+            .map(|host| serde_json::from_value::<HostPin>(host.clone()))
+            .transpose()?;
+        Ok(Self {
+            version: text("version")?,
+            upstream_tag: text("upstreamTag")?,
+            compatibility_host,
+        })
+    }
+
+    pub fn source(&self, path: PathBuf) -> CatalogSource {
+        CatalogSource {
+            path,
+            version: self.version.clone(),
+            upstream_tag: self.upstream_tag.clone(),
+        }
+    }
 }
 
 const MAX_MANUAL_FILE_BYTES: u64 = 16 * 1024 * 1024 * 1024;
@@ -42,8 +83,13 @@ impl Catalog {
             )));
         }
         validate_catalog_recipes(&recipes, &source)?;
+        let host = load_host_pin(&source)?;
         Ok(Self {
-            inner: Arc::new(RwLock::new(CatalogInner { source, recipes })),
+            inner: Arc::new(RwLock::new(CatalogInner {
+                source,
+                recipes,
+                host,
+            })),
             cache_directory,
         })
     }
@@ -56,8 +102,38 @@ impl Catalog {
             ));
         }
         validate_catalog_recipes(&recipes, &source)?;
-        *self.inner.write() = CatalogInner { source, recipes };
+        let host = load_host_pin(&source)?;
+        *self.inner.write() = CatalogInner {
+            source,
+            recipes,
+            host,
+        };
         Ok(())
+    }
+
+    /// The Winetricks host this catalog's tracked recipes run with: the pin shipped in its
+    /// manifest, or for catalogs that predate manifest pins, the one compiled into this build
+    /// when its tag matches.
+    pub fn compatibility_host(&self) -> Option<HostPin> {
+        let inner = self.inner.read();
+        inner.host.clone().or_else(|| {
+            (inner.source.upstream_tag == MANAGED_WINETRICKS_TAG).then(|| HostPin {
+                tag: MANAGED_WINETRICKS_TAG.into(),
+                url: MANAGED_WINETRICKS_URL.into(),
+                sha256: MANAGED_WINETRICKS_SHA256.into(),
+            })
+        })
+    }
+
+    /// Probes a file's cache entry without hashing it (see [`CacheState`]).
+    pub fn cache_state(&self, recipe_id: &str, file: &crate::RecipeFile) -> CacheState {
+        if self.cache_path(recipe_id, file).is_file() {
+            CacheState::Present
+        } else if file.manual {
+            CacheState::ManualRequired
+        } else {
+            CacheState::Absent
+        }
     }
 
     pub fn get(&self, id: &str) -> Result<Recipe> {
@@ -316,6 +392,41 @@ async fn verify_file_sha256(path: &Path, expected: &str) -> Result<()> {
             actual,
         })
     }
+}
+
+fn load_host_pin(source: &CatalogSource) -> Result<Option<HostPin>> {
+    let manifest = source.path.join("manifest.json");
+    if !manifest.is_file() {
+        return Ok(None);
+    }
+    let Some(pin) = CatalogManifest::read(&source.path)?.compatibility_host else {
+        return Ok(None);
+    };
+    validate_host_pin(&pin, &source.upstream_tag)?;
+    Ok(Some(pin))
+}
+
+pub(crate) fn validate_host_pin(pin: &HostPin, upstream_tag: &str) -> Result<()> {
+    let url = url::Url::parse(&pin.url)
+        .map_err(|_| BettertricksError::Catalog("compatibility host URL is invalid".into()))?;
+    if pin.tag != upstream_tag
+        || url.scheme() != "https"
+        || pin.sha256.len() != 64
+        || !pin
+            .sha256
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+        || pin.tag.is_empty()
+        || !pin
+            .tag
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric())
+    {
+        return Err(BettertricksError::Catalog(format!(
+            "compatibility host pin must be an HTTPS URL with a SHA-256 for upstream tag {upstream_tag}"
+        )));
+    }
+    Ok(())
 }
 
 fn load_recipes(root: &Path) -> Result<HashMap<String, Recipe>> {

@@ -1,6 +1,10 @@
 use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::SystemTime;
+
+use parking_lot::Mutex;
 
 use futures_util::StreamExt;
 use regex::Regex;
@@ -11,8 +15,8 @@ use tokio::process::Command;
 use uuid::Uuid;
 
 use crate::{
-    AppPaths, BettertricksError, OperationOptions, Result, VerbCategory, WinePrefix,
-    system::find_command,
+    AppPaths, BettertricksError, Catalog, HostOrigin, HostStatus, OperationOptions, Result,
+    VerbCategory, WinePrefix, system::find_command,
 };
 
 const MAX_LEGACY_VERB_BYTES: u64 = 2 * 1024 * 1024;
@@ -33,10 +37,12 @@ pub struct LegacyVerbInfo {
     pub warning: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LegacyVerbHost {
-    managed: Option<ManagedHost>,
+    managed_root: Option<PathBuf>,
+    catalog: Option<Catalog>,
     system: Option<PathBuf>,
+    verified: Arc<Mutex<Option<(PathBuf, SystemTime, u64)>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,76 +61,145 @@ impl Default for LegacyVerbHost {
 impl LegacyVerbHost {
     pub fn discover() -> Self {
         Self {
-            managed: None,
+            managed_root: None,
+            catalog: None,
             system: find_command("winetricks"),
+            verified: Arc::default(),
         }
     }
 
-    pub fn discover_with_paths(paths: &AppPaths) -> Self {
+    /// The host for `catalog`: its pinned managed script under the app data directory (the
+    /// pin follows catalog updates and rollbacks), or a system `winetricks` of the same tag.
+    pub fn for_catalog(paths: &AppPaths, catalog: &Catalog) -> Self {
         Self {
-            managed: Some(ManagedHost {
-                path: managed_host_path(paths, MANAGED_WINETRICKS_TAG),
-                tag: MANAGED_WINETRICKS_TAG.into(),
-                sha256: MANAGED_WINETRICKS_SHA256.into(),
-            }),
+            managed_root: Some(paths.compatibility_hosts.clone()),
+            catalog: Some(catalog.clone()),
             system: find_command("winetricks"),
+            verified: Arc::default(),
+        }
+    }
+
+    pub fn none() -> Self {
+        Self {
+            managed_root: None,
+            catalog: None,
+            system: None,
+            verified: Arc::default(),
         }
     }
 
     pub fn with_binary(binary: PathBuf) -> Self {
         Self {
-            managed: None,
+            managed_root: None,
+            catalog: None,
             system: Some(binary),
+            verified: Arc::default(),
         }
     }
 
-    pub fn available(&self) -> bool {
-        self.binary_path().is_ok_and(|path| path.is_some())
+    fn managed(&self) -> Option<ManagedHost> {
+        let pin = self.catalog.as_ref()?.compatibility_host()?;
+        Some(ManagedHost {
+            path: self
+                .managed_root
+                .as_ref()?
+                .join(format!("winetricks-{}", pin.tag)),
+            tag: pin.tag,
+            sha256: pin.sha256,
+        })
     }
 
-    pub fn binary_path(&self) -> Result<Option<PathBuf>> {
-        if let Some(managed) = &self.managed
+    /// The single source of truth for whether tracked recipes can run (see [`HostStatus`]).
+    pub fn status(&self, expected_tag: &str) -> HostStatus {
+        if let Some(managed) = self.managed()
+            && managed.tag == expected_tag
             && managed.path.exists()
         {
-            verify_managed_host(managed)?;
-            return Ok(Some(managed.path.clone()));
+            return match self.verify_cached(&managed) {
+                Ok(()) => HostStatus::Ready {
+                    tag: managed.tag,
+                    path: managed.path,
+                    origin: HostOrigin::Managed,
+                },
+                Err(error) => HostStatus::Tampered {
+                    expected: expected_tag.into(),
+                    reason: error.to_string(),
+                    path: managed.path,
+                },
+            };
+        }
+        let Some(system) = self.system.clone() else {
+            return HostStatus::Missing {
+                expected: expected_tag.into(),
+            };
+        };
+        let version = system_version(&system);
+        if version
+            .split_whitespace()
+            .any(|token| token == expected_tag)
+        {
+            return HostStatus::Ready {
+                tag: expected_tag.into(),
+                path: system,
+                origin: HostOrigin::System,
+            };
+        }
+        HostStatus::Mismatched {
+            expected: expected_tag.into(),
+            found: version
+                .lines()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .unwrap_or("unknown version")
+                .into(),
+            path: system,
+        }
+    }
+
+    /// Any usable host binary for custom `.verb` files, which are not tied to a catalog tag.
+    pub fn binary_path(&self) -> Result<Option<PathBuf>> {
+        if let Some(managed) = self.managed()
+            && managed.path.exists()
+        {
+            self.verify_cached(&managed)?;
+            return Ok(Some(managed.path));
         }
         Ok(self.system.clone())
     }
 
     pub async fn require_baseline(&self, expected_tag: &str) -> Result<()> {
-        let binary = self.binary_for_baseline(expected_tag)?.ok_or_else(|| {
-            BettertricksError::Unsupported(
+        let host = self.clone();
+        let expected_tag = expected_tag.to_owned();
+        tokio::task::spawn_blocking(move || host.ready_binary(&expected_tag).map(|_| ()))
+            .await
+            .map_err(|error| BettertricksError::Io(std::io::Error::other(error)))?
+    }
+
+    fn ready_binary(&self, expected_tag: &str) -> Result<PathBuf> {
+        match self.status(expected_tag) {
+            HostStatus::Ready { path, .. } => Ok(path),
+            HostStatus::Missing { .. } => Err(BettertricksError::Unsupported(
                 "install the verified Winetricks compatibility host from Bettertricks settings"
                     .into(),
-            )
-        })?;
-        let output = Command::new(&binary).arg("--version").output().await?;
-        if !output.status.success() {
-            return Err(BettertricksError::CommandFailed {
-                program: binary.display().to_string(),
-                code: output.status.code(),
-            });
+            )),
+            HostStatus::Mismatched {
+                expected, found, ..
+            } => Err(BettertricksError::Unsupported(format!(
+                "installed Winetricks ({found}) does not match the catalog baseline {expected}"
+            ))),
+            HostStatus::Tampered { reason, .. } => Err(BettertricksError::Security(reason)),
         }
-        let version = format!(
-            "{}\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-        if version
-            .split_whitespace()
-            .any(|token| token == expected_tag)
-        {
+    }
+
+    fn verify_cached(&self, host: &ManagedHost) -> Result<()> {
+        let metadata = std::fs::metadata(&host.path)?;
+        let stamp = (host.path.clone(), metadata.modified()?, metadata.len());
+        if self.verified.lock().as_ref() == Some(&stamp) {
             return Ok(());
         }
-        let installed = version
-            .lines()
-            .map(str::trim)
-            .find(|line| !line.is_empty())
-            .unwrap_or("unknown version");
-        Err(BettertricksError::Unsupported(format!(
-            "installed Winetricks ({installed}) does not match the catalog baseline {expected_tag}"
-        )))
+        verify_managed_host(host)?;
+        *self.verified.lock() = Some(stamp);
+        Ok(())
     }
 
     pub fn recipe_command(
@@ -143,12 +218,7 @@ impl LegacyVerbHost {
                 "invalid Winetricks recipe identifier {recipe_id:?}"
             )));
         }
-        let binary = self.binary_for_baseline(expected_tag)?.ok_or_else(|| {
-            BettertricksError::Unsupported(
-                "install the verified Winetricks compatibility host from Bettertricks settings"
-                    .into(),
-            )
-        })?;
+        let binary = self.ready_binary(expected_tag)?;
         let mut command = Command::new(binary);
         apply_options(&mut command, options);
         command
@@ -207,17 +277,14 @@ impl LegacyVerbHost {
         })
     }
 
-    pub async fn run(
+    /// The command that runs a reviewed custom `.verb`; the engine runs it under the prefix
+    /// lock and process-group supervision.
+    pub(crate) fn verb_command(
         &self,
-        path: &Path,
+        info: &LegacyVerbInfo,
         prefix: &WinePrefix,
         options: &OperationOptions,
-        trusted: bool,
-    ) -> Result<()> {
-        let info = self.inspect(path)?;
-        if !trusted {
-            return Err(BettertricksError::Security(info.warning));
-        }
+    ) -> Result<Command> {
         let binary = self.binary_path()?.ok_or_else(|| {
             BettertricksError::Unsupported(
                 "running custom .verb files requires the optional Winetricks compatibility host"
@@ -233,50 +300,102 @@ impl LegacyVerbHost {
         if let Some(runtime) = &prefix.runtime {
             command.env("WINE", runtime);
         }
-        let status = command.status().await?;
-        if !status.success() {
-            return Err(BettertricksError::CommandFailed {
-                program: binary.display().to_string(),
-                code: status.code(),
-            });
-        }
-        Ok(())
-    }
-
-    fn binary_for_baseline(&self, expected_tag: &str) -> Result<Option<PathBuf>> {
-        if let Some(managed) = &self.managed
-            && managed.tag == expected_tag
-            && managed.path.exists()
-        {
-            verify_managed_host(managed)?;
-            return Ok(Some(managed.path.clone()));
-        }
-        Ok(self.system.clone())
+        Ok(command)
     }
 }
 
+type VersionKey = (PathBuf, Option<SystemTime>, u64);
+
+/// `winetricks --version` output per binary, keyed by path, mtime and size so an upgraded
+/// script is re-probed but status checks do not spawn a shell every time.
+static SYSTEM_VERSIONS: std::sync::LazyLock<Mutex<std::collections::HashMap<VersionKey, String>>> =
+    std::sync::LazyLock::new(Mutex::default);
+
+/// Blocking (spawns and waits up to 5 s on a cache miss); async callers use a blocking thread.
+fn system_version(binary: &Path) -> String {
+    let metadata = std::fs::metadata(binary).ok();
+    let key = (
+        binary.to_path_buf(),
+        metadata
+            .as_ref()
+            .and_then(|metadata| metadata.modified().ok()),
+        metadata.map(|metadata| metadata.len()).unwrap_or_default(),
+    );
+    if let Some(version) = SYSTEM_VERSIONS.lock().get(&key) {
+        return version.clone();
+    }
+    let version = probe_system_version(binary);
+    if !version.is_empty() {
+        SYSTEM_VERSIONS.lock().insert(key, version.clone());
+    }
+    version
+}
+
+fn probe_system_version(binary: &Path) -> String {
+    let mut command = std::process::Command::new(binary);
+    command
+        .arg("--version")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let Ok(mut child) = crate::process::retry_text_busy(|| command.spawn()) else {
+        return String::new();
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return String::new();
+            }
+        }
+    }
+    child
+        .wait_with_output()
+        .map(|output| {
+            format!(
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            )
+        })
+        .unwrap_or_default()
+}
+
+/// Downloads and installs the host pinned by the active catalog.
 pub async fn install_managed_compatibility_host(
     paths: &AppPaths,
-    expected_tag: &str,
+    catalog: &Catalog,
 ) -> Result<PathBuf> {
-    if expected_tag != MANAGED_WINETRICKS_TAG {
-        return Err(BettertricksError::Unsupported(format!(
-            "Bettertricks does not ship a verified compatibility host for catalog baseline {expected_tag}"
-        )));
-    }
-    let destination = managed_host_path(paths, expected_tag);
+    let expected_tag = catalog.summary().upstream_tag;
+    let pin = catalog
+        .compatibility_host()
+        .filter(|pin| pin.tag == expected_tag)
+        .ok_or_else(|| {
+            BettertricksError::Unsupported(format!(
+                "catalog baseline {expected_tag} does not pin a verified compatibility host"
+            ))
+        })?;
+    crate::catalog::validate_host_pin(&pin, &expected_tag)?;
+    let host = LegacyVerbHost {
+        managed_root: Some(paths.compatibility_hosts.clone()),
+        catalog: Some(catalog.clone()),
+        system: None,
+        verified: Arc::default(),
+    };
+    let destination = managed_host_path(paths, &pin.tag);
     let managed = ManagedHost {
         path: destination.clone(),
-        tag: expected_tag.into(),
-        sha256: MANAGED_WINETRICKS_SHA256.into(),
+        tag: pin.tag.clone(),
+        sha256: pin.sha256.clone(),
     };
     if destination.exists() && verify_managed_host(&managed).is_ok() {
-        LegacyVerbHost {
-            managed: Some(managed),
-            system: None,
-        }
-        .require_baseline(expected_tag)
-        .await?;
+        host.require_baseline(&expected_tag).await?;
         return Ok(destination);
     }
 
@@ -285,11 +404,7 @@ pub async fn install_managed_compatibility_host(
         .redirect(reqwest::redirect::Policy::limited(3))
         .user_agent(concat!("Bettertricks/", env!("CARGO_PKG_VERSION")))
         .build()?;
-    let response = client
-        .get(MANAGED_WINETRICKS_URL)
-        .send()
-        .await?
-        .error_for_status()?;
+    let response = client.get(&pin.url).send().await?.error_for_status()?;
     if response
         .content_length()
         .is_some_and(|length| length > MAX_MANAGED_HOST_BYTES)
@@ -309,13 +424,8 @@ pub async fn install_managed_compatibility_host(
         }
         bytes.extend_from_slice(&chunk);
     }
-    publish_managed_host(&destination, MANAGED_WINETRICKS_SHA256, &bytes).await?;
-    LegacyVerbHost {
-        managed: Some(managed),
-        system: None,
-    }
-    .require_baseline(expected_tag)
-    .await?;
+    publish_managed_host(&destination, &pin.sha256, &bytes).await?;
+    host.require_baseline(&expected_tag).await?;
     Ok(destination)
 }
 
@@ -485,7 +595,15 @@ mod tests {
 
     #[tokio::test]
     async fn builds_named_recipe_commands_without_shell_interpolation() {
-        let host = LegacyVerbHost::with_binary(PathBuf::from("/bin/echo"));
+        let temp = tempfile::tempdir().unwrap();
+        let binary = temp.path().join("winetricks");
+        std::fs::write(
+            &binary,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 20260125; else echo \"$@\"; fi\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let host = LegacyVerbHost::with_binary(binary);
         let prefix = WinePrefix {
             id: uuid::Uuid::new_v4(),
             name: "Test".into(),
@@ -499,6 +617,7 @@ mod tests {
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let options = OperationOptions {
             force: true,
@@ -506,10 +625,14 @@ mod tests {
             isolate: true,
             ..OperationOptions::default()
         };
-        let output = host
+        let mut command = host
             .recipe_command("vcrun2022", "20260125", &prefix, &options)
+            .unwrap();
+        command.stdout(std::process::Stdio::piped());
+        let output = crate::process::spawn_retrying(&mut command)
+            .await
             .unwrap()
-            .output()
+            .wait_with_output()
             .await
             .unwrap();
 
@@ -537,16 +660,7 @@ mod tests {
             tag: "test".into(),
             sha256: checksum,
         };
-        let host = LegacyVerbHost {
-            managed: Some(managed.clone()),
-            system: None,
-        };
-
-        assert_eq!(
-            host.binary_for_baseline("test").unwrap(),
-            Some(destination.clone())
-        );
-        host.require_baseline("test").await.unwrap();
+        assert!(verify_managed_host(&managed).is_ok());
         assert_ne!(
             std::fs::metadata(&destination)
                 .unwrap()
@@ -573,15 +687,85 @@ mod tests {
         assert!(!destination.exists());
     }
 
+    fn catalog_at(root: &Path, tag: &str, manifest: Option<String>) -> Catalog {
+        std::fs::create_dir_all(root).unwrap();
+        std::fs::write(
+            root.join("hosted.toml"),
+            format!("schema=1\nid=\"hosted\"\ncategory=\"dlls\"\ntitle=\"Hosted\"\n[source]\nupstream_tag=\"{tag}\"\nupstream_verb=\"hosted\"\n"),
+        )
+        .unwrap();
+        if let Some(manifest) = manifest {
+            std::fs::write(root.join("manifest.json"), manifest).unwrap();
+        }
+        Catalog::load(
+            crate::CatalogSource {
+                path: root.to_path_buf(),
+                version: format!("winetricks-{tag}"),
+                upstream_tag: tag.into(),
+            },
+            root.join("cache"),
+        )
+        .unwrap()
+    }
+
     #[tokio::test]
     async fn rejects_unpinned_managed_host_baselines_without_network_access() {
         let temp = tempfile::tempdir().unwrap();
         let paths = AppPaths::isolated(temp.path()).unwrap();
+        let catalog = catalog_at(&temp.path().join("catalog"), "20990101", None);
 
+        assert!(catalog.compatibility_host().is_none());
         assert!(
-            install_managed_compatibility_host(&paths, "20990101")
+            install_managed_compatibility_host(&paths, &catalog)
                 .await
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn a_catalog_update_carries_its_own_host_pin() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let bytes = b"#!/bin/sh\necho 20990101\n";
+        let checksum = hex::encode(Sha256::digest(bytes));
+        let manifest = format!(
+            r#"{{"version":"winetricks-20990101","upstreamTag":"20990101","compatibilityHost":{{"tag":"20990101","url":"https://example.test/winetricks","sha256":"{checksum}"}}}}"#
+        );
+        let catalog = catalog_at(&temp.path().join("catalog"), "20990101", Some(manifest));
+        // Never fall back to (and execute) a `winetricks` installed on the test machine.
+        let host = LegacyVerbHost {
+            system: None,
+            ..LegacyVerbHost::for_catalog(&paths, &catalog)
+        };
+        assert!(matches!(
+            host.status("20990101"),
+            HostStatus::Missing { .. }
+        ));
+
+        publish_managed_host(
+            &paths.compatibility_hosts.join("winetricks-20990101"),
+            &checksum,
+            bytes,
+        )
+        .await
+        .unwrap();
+        assert!(matches!(
+            host.status("20990101"),
+            HostStatus::Ready {
+                origin: HostOrigin::Managed,
+                ..
+            }
+        ));
+        host.require_baseline("20990101").await.unwrap();
+
+        std::fs::write(
+            paths.compatibility_hosts.join("winetricks-20990101"),
+            "#!/bin/sh\necho tampered!\n",
+        )
+        .unwrap();
+        assert!(matches!(
+            host.status("20990101"),
+            HostStatus::Tampered { .. }
+        ));
     }
 }

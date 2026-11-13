@@ -20,7 +20,15 @@ export type OperationState =
   | "cancelling"
   | "succeeded"
   | "failed"
-  | "cancelled";
+  | "cancelled"
+  | "interrupted";
+export type PrefixStatus = "missing" | "uninitialized" | "ready" | "busy";
+export type CacheState = "absent" | "present" | "manual_required";
+export type HostStatus =
+  | { state: "missing"; expected: string }
+  | { state: "mismatched"; expected: string; found: string; path: string }
+  | { state: "tampered"; expected: string; reason: string; path: string }
+  | { state: "ready"; tag: string; path: string; origin: "managed" | "system" };
 export type RecipeFailureKind = "failed" | "skipped_dependency";
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -37,6 +45,7 @@ export interface WinePrefix {
   installed_verbs: string[];
   size_bytes: number | null;
   last_modified: string | null;
+  status?: PrefixStatus;
 }
 
 export interface WineRuntime {
@@ -65,6 +74,7 @@ export interface SystemReport {
   desktop: string | null;
   dependencies: DependencyCheck[];
   runtimes: WineRuntime[];
+  compatibility_host: HostStatus;
   data_directory: string;
   cache_directory: string;
   state_directory: string;
@@ -229,6 +239,7 @@ export interface PlannedDownload {
   urls: string[];
   cached: boolean;
   manual: boolean;
+  cache_state?: CacheState;
 }
 
 export interface OperationPlan {
@@ -302,6 +313,15 @@ export interface RestorePoint {
   created_at: string;
   size_bytes: number | null;
   operation_id: UUID | null;
+  prefix_source?: PrefixSource | null;
+  runtime?: string | null;
+}
+
+export interface LiveOperation {
+  plan: OperationPlan;
+  state: OperationState;
+  latest: OperationEvent | null;
+  prompt: OperationPrompt | null;
 }
 
 export interface ClearRestorePointsResult {
@@ -324,6 +344,7 @@ export interface AppSettings {
   show_advanced: boolean;
   reduced_motion: boolean;
   custom_wine_binary: string | null;
+  restore_point_retention: number;
 }
 
 export interface BootstrapPayload {
@@ -336,4 +357,5 @@ export interface BootstrapPayload {
   restore_points: RestorePoint[];
   catalog_signed: boolean;
   catalog_rollback_available: boolean;
+  live_operations: LiveOperation[];
 }

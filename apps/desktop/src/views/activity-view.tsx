@@ -14,36 +14,47 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import type { OperationRecord, OperationState } from "../types";
+import type { OperationRecord, OperationState, RestorePoint, UUID } from "../types";
+import { LIVE_STATES } from "../lib/operations";
 import { titleCase } from "../lib/format";
 import { useI18n } from "../lib/i18n";
 import { Badge, Button, EmptyState, StatusBadge } from "../components/common";
+
+interface OperationActions {
+  liveOperationIds?: ReadonlySet<UUID>;
+  restorePoints?: RestorePoint[];
+  onOpenOperation?: (operationId: UUID) => void;
+  onCancelOperation?: (operationId: UUID) => void;
+  onRestoreSnapshot?: (restorePointId: UUID) => void;
+  onDeleteSnapshot?: (restorePointId: UUID) => void;
+}
 
 export function ActivityView({
   operations,
   onRefresh,
   onClearActivity,
   onRetryRecipes,
+  ...actions
 }: {
   operations: OperationRecord[];
   onRefresh: () => void;
   onClearActivity: () => Promise<void>;
   onRetryRecipes: (prefixId: string, recipeIds: string[]) => void;
-}) {
+} & OperationActions) {
   const { t, formatNumber, intlLocale } = useI18n();
   const [filter, setFilter] = useState<"all" | "running" | "failed" | "succeeded">("all");
   const [search, setSearch] = useState("");
   const [clearOpen, setClearOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
   const visible = useMemo(() => operations.filter((operation) => {
-    const stateMatch = filter === "all" || operation.state === filter || (filter === "running" && ["preflight", "waiting_for_user"].includes(operation.state));
+    const stateMatch = filter === "all" || operation.state === filter || (filter === "running" && LIVE_STATES.has(operation.state)) || (filter === "failed" && operation.state === "interrupted");
     const haystack = `${operation.prefix_name} ${operation.recipes.join(" ")} ${operation.message ?? ""} ${(operation.failures ?? []).map((failure) => `${failure.recipe_title} ${failure.message}`).join(" ")}`.toLocaleLowerCase(intlLocale);
     return stateMatch && haystack.includes(search.toLocaleLowerCase(intlLocale));
   }), [operations, filter, search, intlLocale]);
 
-  const running = operations.filter((operation) => ["running", "preflight", "waiting_for_user"].includes(operation.state)).length;
-  const failed = operations.filter((operation) => operation.state === "failed").length;
-  const hasClearableOperations = operations.some((operation) => ["succeeded", "failed", "cancelled"].includes(operation.state));
+  const running = operations.filter((operation) => LIVE_STATES.has(operation.state)).length;
+  const failed = operations.filter((operation) => operation.state === "failed" || operation.state === "interrupted").length;
+  const hasClearableOperations = operations.some((operation) => !LIVE_STATES.has(operation.state));
 
   const clearActivity = async () => {
     setClearing(true);
@@ -91,7 +102,7 @@ export function ActivityView({
         {visible.length ? (
           <div className="operation-table" role="table" aria-label={t("Operation history")}>
             <div className="operation-table-head" role="row"><span role="columnheader">{t("Operation")}</span><span role="columnheader">{t("Prefix")}</span><span role="columnheader">{t("Progress")}</span><span role="columnheader">{t("Started")}</span><span role="columnheader">{t("Status")}</span><span role="columnheader" aria-label={t("Details")} /></div>
-            {visible.map((operation) => <OperationRow operation={operation} onRetryRecipes={onRetryRecipes} key={operation.id} />)}
+            {visible.map((operation) => <OperationRow operation={operation} onRetryRecipes={onRetryRecipes} actions={actions} key={operation.id} />)}
           </div>
         ) : (
           <EmptyState icon={<FileText size={25} />} title={t("No matching activity")} body={t("Completed and active operations will remain available here for troubleshooting.")} />
@@ -119,26 +130,49 @@ export function ActivityView({
   );
 }
 
-function OperationRow({ operation, onRetryRecipes }: { operation: OperationRecord; onRetryRecipes: (prefixId: string, recipeIds: string[]) => void }) {
+/** Controls for the states that need the user: live ones (this app can drive them) and
+ * interrupted ones (their pre-operation snapshot can be restored or deleted). */
+function OperationControls({ operation, actions }: { operation: OperationRecord; actions: OperationActions }) {
+  const { t } = useI18n();
+  const live = actions.liveOperationIds?.has(operation.id) ?? false;
+  const snapshot = actions.restorePoints?.find((point) => point.operation_id === operation.id);
+  switch (operation.state) {
+    case "waiting_for_user":
+      return live ? <Button size="small" variant="primary" onClick={() => actions.onOpenOperation?.(operation.id)}>{t("Answer prompt")}</Button> : null;
+    case "planned":
+    case "preflight":
+    case "running":
+      return live ? <Button size="small" variant="ghost" onClick={() => actions.onCancelOperation?.(operation.id)}>{t("Cancel operation")}</Button> : null;
+    case "interrupted":
+      return snapshot ? <><Button size="small" onClick={() => actions.onRestoreSnapshot?.(snapshot.id)}>{t("Restore snapshot")}</Button><Button size="small" variant="ghost" onClick={() => actions.onDeleteSnapshot?.(snapshot.id)}>{t("Delete snapshot")}</Button></> : null;
+    case "cancelling":
+    case "succeeded":
+    case "failed":
+    case "cancelled":
+      return null;
+  }
+}
+
+function OperationRow({ operation, onRetryRecipes, actions }: { operation: OperationRecord; onRetryRecipes: (prefixId: string, recipeIds: string[]) => void; actions: OperationActions }) {
   const { t, formatNumber, formatRelativeTime } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const progress = operation.total_steps ? operation.current_step / operation.total_steps : 0;
   const failures = operation.failures ?? [];
   const retryIds = [...new Set((failures.length ? failures.map((failure) => failure.recipe_id) : operation.recipes))];
   return (
-    <div className={clsx("operation-row-group", expanded && "expanded")} role="rowgroup">
+    <div className={clsx("operation-row-group", expanded && "expanded")} role="rowgroup" data-operation-state={operation.state} data-operation-id={operation.id}>
       <div className="operation-row" role="row">
         <span className="operation-name" role="cell"><span className={`operation-state-icon state-${operation.state}`}>{stateIcon(operation.state)}</span><span><strong dir="auto">{operation.recipes.map(friendlyVerb).join(", ")}</strong><small dir="auto">{operation.message ?? t("Recipes: {count}", { count: formatNumber(operation.recipes.length) })}</small></span></span>
         <span role="cell"><strong dir="auto">{operation.prefix_name}</strong><small>{operation.prefix_id.slice(0, 8)}</small></span>
         <span className="table-progress" role="cell"><strong>{formatNumber(operation.current_step)} / {formatNumber(operation.total_steps)}</strong><span role="progressbar" aria-label={t("Operation progress for {prefix}", { prefix: operation.prefix_name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.max(0, Math.min(1, progress)) * 100)}><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, progress))})` }} /></span></span>
         <span role="cell"><strong>{formatRelativeTime(operation.started_at ?? operation.created_at)}</strong><small>{operation.finished_at ? t("Finished {time}", { time: formatRelativeTime(operation.finished_at) }) : t("In progress")}</small></span>
-        <span role="cell"><StatusBadge state={operation.state} /></span>
+        <span role="cell"><StatusBadge state={operation.state} /><OperationControls operation={operation} actions={actions} /></span>
         <span role="cell"><button className="operation-details-toggle" aria-label={expanded ? t("Hide details for {prefix} operation", { prefix: operation.prefix_name }) : t("Show details for {prefix} operation", { prefix: operation.prefix_name })} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}><CaretDown aria-hidden="true" /></button></span>
       </div>
       {expanded ? (
         <section className="operation-details" aria-label={t("Diagnostics for {prefix} operation", { prefix: operation.prefix_name })}>
           <div className="operation-details-heading">
-            <span><FileText /><span><strong>{t("Operation diagnostics")}</strong><small dir="auto">{operation.message ?? t("No additional diagnostic message was recorded.")}</small></span></span>
+            <span><FileText /><span><strong>{t("Operation diagnostics")}</strong><small dir="auto">{operation.state === "interrupted" ? t("Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.") : operation.message ?? t("No additional diagnostic message was recorded.")}</small></span></span>
             {operation.state === "failed" && retryIds.length ? <Button size="small" onClick={() => onRetryRecipes(operation.prefix_id, retryIds)}><ArrowClockwise /> {t("Retry all ({count})", { count: formatNumber(retryIds.length) })}</Button> : null}
           </div>
           {failures.length ? (
@@ -173,7 +207,7 @@ function activityFilterLabel(filter: "all" | "running" | "failed" | "succeeded",
 function stateIcon(state: OperationState) {
   if (state === "succeeded") return <CheckCircle weight="fill" />;
   if (state === "failed") return <WarningCircle weight="fill" />;
-  if (["running", "preflight", "waiting_for_user"].includes(state)) return <ArrowClockwise weight="bold" />;
+  if (LIVE_STATES.has(state)) return <ArrowClockwise weight="bold" />;
   return <ClockCounterClockwise />;
 }
 

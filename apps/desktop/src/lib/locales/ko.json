@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "확인하려면 {prefix}를 입력하세요.",
   "Unattended mode": "무인 모드",
   "Uninstaller": "제거 프로그램",
-  "unknown": "알 수 없음",
   "Unknown": "알 수 없음",
   "Unknown architecture": "알 수 없는 아키텍처",
   "Update font rendering registry keys": "글꼴 렌더링 레지스트리 키 업데이트",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Winetricks 호환 항목: {count}",
   "Work in progress": "작업 진행 중",
   "Working…": "일하는 중…",
-  "Your Wine prefixes were not changed.": "Wine 접두어는 변경되지 않았습니다."
+  "Your Wine prefixes were not changed.": "Wine 접두어는 변경되지 않았습니다.",
+  "Permanently delete this snapshot? This cannot be undone.": "이 스냅샷을 영구적으로 삭제할까요? 되돌릴 수 없습니다.",
+  "Snapshot deleted": "스냅샷을 삭제했습니다",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "이 스냅샷을 복원할까요? 현재 프리픽스는 먼저 휴지통으로 이동됩니다.",
+  "Interrupted": "중단됨",
+  "Answer prompt": "프롬프트에 응답",
+  "Restore snapshot": "스냅샷 복원",
+  "Delete snapshot": "스냅샷 삭제",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "이 작업이 끝나기 전에 Bettertricks가 종료되었습니다. 작업 전에 만든 스냅샷을 복원하거나 삭제하세요.",
+  "Another Bettertricks task is changing this prefix.": "다른 Bettertricks 작업이 이 프리픽스를 변경하고 있습니다.",
+  "Busy": "사용 중",
+  "Keep restore points per prefix": "프리픽스당 복원 지점",
+  "Older restore points are deleted automatically after a new one is created.": "새 복원 지점을 만들면 오래된 복원 지점은 자동으로 삭제됩니다.",
+  "Unlimited": "무제한",
+  "Restore points use {size}.": "복원 지점이 {size}를 사용합니다."
 }

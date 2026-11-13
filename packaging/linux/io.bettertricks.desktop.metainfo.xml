@@ -14,7 +14,7 @@
       structured activity, and a native Winetricks-compatible recipe engine.
     </p>
   </description>
-  <launchable type="desktop-id">io.bettertricks.desktop.desktop</launchable>
+  <launchable type="desktop-id">Bettertricks.desktop</launchable>
   <url type="homepage">https://github.com/RamazanBerk20/Bettertricks</url>
   <url type="bugtracker">https://github.com/RamazanBerk20/Bettertricks/issues</url>
   <provides>

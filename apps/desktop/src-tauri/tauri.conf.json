@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev:web",
     "beforeBundleCommand": "cargo build --release -p bettertricks",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://127.0.0.1:1420",
     "beforeBuildCommand": "pnpm build:web",
     "frontendDist": "../dist"
   },
@@ -42,19 +42,22 @@
       "appimage": {
         "bundleMediaFramework": false,
         "files": {
-          "/usr/bin/bettertricks": "../../../target/release/bettertricks"
+          "/usr/bin/bettertricks": "../../../target/release/bettertricks",
+          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml"
         }
       },
       "deb": {
         "depends": ["wine", "cabextract", "p7zip-full", "unzip", "gzip", "tar", "xz-utils", "zstd"],
         "files": {
-          "/usr/bin/bettertricks": "../../../target/release/bettertricks"
+          "/usr/bin/bettertricks": "../../../target/release/bettertricks",
+          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml"
         }
       },
       "rpm": {
         "depends": ["wine", "cabextract", "p7zip", "unzip", "gzip", "tar", "xz", "zstd"],
         "files": {
-          "/usr/bin/bettertricks": "../../../target/release/bettertricks"
+          "/usr/bin/bettertricks": "../../../target/release/bettertricks",
+          "/usr/share/metainfo/io.bettertricks.desktop.metainfo.xml": "../../../packaging/linux/io.bettertricks.desktop.metainfo.xml"
         }
       }
     }

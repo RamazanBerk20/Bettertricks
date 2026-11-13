@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "{prefix} と入力して確認します",
   "Unattended mode": "無人モード",
   "Uninstaller": "アンインストーラー",
-  "unknown": "不明",
   "Unknown": "不明",
   "Unknown architecture": "未知のアーキテクチャ",
   "Update font rendering registry keys": "フォント レンダリング レジストリ キーを更新する",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Winetricks 互換エントリ: {count}",
   "Work in progress": "作業中です",
   "Working…": "働いています…",
-  "Your Wine prefixes were not changed.": "Wine プレフィックスは変更されませんでした。"
+  "Your Wine prefixes were not changed.": "Wine プレフィックスは変更されませんでした。",
+  "Permanently delete this snapshot? This cannot be undone.": "このスナップショットを完全に削除しますか？元に戻せません。",
+  "Snapshot deleted": "スナップショットを削除しました",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "このスナップショットを復元しますか？現在のプレフィックスは先にゴミ箱へ移動されます。",
+  "Interrupted": "中断",
+  "Answer prompt": "プロンプトに応答",
+  "Restore snapshot": "スナップショットを復元",
+  "Delete snapshot": "スナップショットを削除",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "この操作の完了前に Bettertricks が終了しました。操作前に作成したスナップショットを復元するか、削除してください。",
+  "Another Bettertricks task is changing this prefix.": "別の Bettertricks タスクがこのプレフィックスを変更しています。",
+  "Busy": "使用中",
+  "Keep restore points per prefix": "プレフィックスごとの復元ポイント数",
+  "Older restore points are deleted automatically after a new one is created.": "新しい復元ポイントを作成すると、古い復元ポイントは自動的に削除されます。",
+  "Unlimited": "無制限",
+  "Restore points use {size}.": "復元ポイントの使用量: {size}"
 }

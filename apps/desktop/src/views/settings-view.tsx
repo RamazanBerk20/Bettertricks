@@ -19,7 +19,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import type { AppSettings, BootstrapPayload, ThemePreference, UUID } from "../types";
-import { hasVersionToken, shortPath } from "../lib/format";
+import { shortPath } from "../lib/format";
 import { useI18n } from "../lib/i18n";
 import { normalizeLanguagePreference, SUPPORTED_LOCALES } from "../lib/translations";
 import { Badge, Button, SelectMenu } from "../components/common";
@@ -39,14 +39,16 @@ interface SettingsViewProps {
   onInstallCompatibilityHost: () => void;
   compatibilityHostInstalling: boolean;
   onRestorePrefix: (restorePointId: UUID) => void;
+  onDeleteRestorePoint?: (restorePointId: UUID) => void;
 }
 
-export function SettingsView({ data, settings, onSettingsChange, onClearCache, onClearRestorePoints, onOpenPath, onOpenLegacyVerb, onCheckCatalog, onRollbackCatalog, onInstallCompatibilityHost, compatibilityHostInstalling, onRestorePrefix }: SettingsViewProps) {
+export function SettingsView({ data, settings, onSettingsChange, onClearCache, onClearRestorePoints, onOpenPath, onOpenLegacyVerb, onCheckCatalog, onRollbackCatalog, onInstallCompatibilityHost, compatibilityHostInstalling, onRestorePrefix, onDeleteRestorePoint }: SettingsViewProps) {
   const { t, formatBytes, formatNumber, formatRelativeTime } = useI18n();
   const [clearRestoreOpen, setClearRestoreOpen] = useState(false);
   const [clearingRestore, setClearingRestore] = useState(false);
   const languageOptions = [{ value: "system", label: t("System") }, ...LANGUAGE_OPTIONS];
-  const dependencyReady = (item: BootstrapPayload["system"]["dependencies"][number]) => item.available && (item.id !== "winetricks" || hasVersionToken(item.version, data.catalog.upstream_tag));
+  const host = data.system.compatibility_host;
+  const dependencyReady = (item: BootstrapPayload["system"]["dependencies"][number]) => item.id === "winetricks" ? host?.state === "ready" : item.available;
   const missingOptional = data.system.dependencies.filter((item) => !item.required && !dependencyReady(item));
   const legacyHostAvailable = data.system.dependencies.find((item) => item.id === "winetricks")?.available ?? false;
   const clearRestorePoints = async () => {
@@ -114,6 +116,16 @@ export function SettingsView({ data, settings, onSettingsChange, onClearCache, o
           </SettingsSection>
 
           <SettingsSection id="recovery" title={t("Restore points")} description={t("Recover a prefix after its current directory has been moved aside or to Trash.")}>
+            <SettingRow title={t("Keep restore points per prefix")} description={`${t("Older restore points are deleted automatically after a new one is created.")} ${t("Restore points use {size}.", { size: formatBytes(data.restore_points.reduce((total, point) => total + (point.size_bytes ?? 0), 0)) })}`}>
+              <SelectMenu
+                className="language-trigger"
+                centered
+                value={String(settings.restore_point_retention ?? 0)}
+                options={[3, 5, 10, 20].map((count) => ({ value: String(count), label: formatNumber(count) })).concat({ value: "0", label: t("Unlimited") })}
+                label={t("Keep restore points per prefix")}
+                onValueChange={(value) => onSettingsChange({ ...settings, restore_point_retention: Number(value) })}
+              />
+            </SettingRow>
             <div className="recovery-actions">
               <Button size="small" onClick={() => setClearRestoreOpen(true)} disabled={!data.restore_points.length}>
                 <Trash /> {t("Clear restore points")}
@@ -127,7 +139,10 @@ export function SettingsView({ data, settings, onSettingsChange, onClearCache, o
                     <div className="dependency-row" key={point.id}>
                       <span className="dependency-ok"><Archive weight="fill" /></span>
                       <div><strong>{point.prefix_name}</strong><span>{formatRelativeTime(point.created_at)} · {formatBytes(point.size_bytes)}</span></div>
-                      <Button size="small" onClick={() => onRestorePrefix(point.id)} disabled={targetExists} title={targetExists ? t("Move the current prefix to Trash before restoring") : undefined}>{t("Restore")}</Button>
+                      <div className="dependency-tail">
+                        <Button size="small" onClick={() => onRestorePrefix(point.id)} disabled={targetExists} title={targetExists ? t("Move the current prefix to Trash before restoring") : undefined}>{t("Restore")}</Button>
+                        {onDeleteRestorePoint ? <Button size="small" variant="ghost" onClick={() => onDeleteRestorePoint(point.id)}><Trash /> {t("Delete snapshot")}</Button> : null}
+                      </div>
                     </div>
                   );
                 })}
@@ -155,7 +170,7 @@ export function SettingsView({ data, settings, onSettingsChange, onClearCache, o
                   <span className={dependencyReady(dependency) ? "dependency-ok" : dependency.required || dependency.id === "winetricks" && dependency.available ? "dependency-error" : "dependency-optional"}>
                     {dependencyReady(dependency) ? <CheckCircle weight="fill" /> : <WarningCircle weight="fill" />}
                   </span>
-                  <div><strong>{dependency.label}</strong><span>{dependency.id === "winetricks" && dependency.available && !dependencyReady(dependency) ? t("Expected {expected}; found {found}", { expected: data.catalog.upstream_tag, found: dependency.version ?? t("unknown") }) : dependency.version ?? dependency.remediation ?? t("Optional")}</span></div>
+                  <div><strong>{dependency.label}</strong><span>{dependency.id === "winetricks" && host?.state === "mismatched" ? t("Expected {expected}; found {found}", { expected: host.expected, found: host.found }) : dependency.version ?? dependency.remediation ?? t("Optional")}</span></div>
                   <div className="dependency-tail">
                     <code>{dependency.path ? shortPath(dependency.path, 34) : dependency.required ? t("Missing") : t("Optional")}</code>
                     {dependency.id === "winetricks" && !dependencyReady(dependency) ? (

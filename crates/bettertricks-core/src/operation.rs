@@ -2,8 +2,10 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
+use async_trait::async_trait;
 use chrono::Utc;
 use futures_util::StreamExt;
 use parking_lot::Mutex;
@@ -15,20 +17,31 @@ use tokio::sync::{Mutex as AsyncMutex, mpsc, oneshot};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
+use crate::lock::{LockProbe, PrefixLock, PrefixLocks};
 use crate::planner::{plan_recipe_map, recipe_dependency_ids, step_required_tools};
+use crate::process::{WineScope, spawn_supervised, stop_process_group, wait_supervised};
 use crate::{
-    AppPaths, BettertricksError, Catalog, DllOverrideMode, LegacyVerbHost, NativeAction,
-    OperationEvent, OperationPlan, OperationPrompt, OperationRecord, OperationState, PromptChoice,
-    PromptLevel, PromptResponse, Recipe, RecipeFailure, RecipeFailureKind, RecipeFile, RecipeFont,
-    RecipeMaturity, RecipeStep, RecoveryManager, RegistryArchitecture, Result, Store, WinePrefix,
+    AppPaths, BettertricksError, Catalog, DllOverrideMode, LegacyVerbHost, LegacyVerbInfo,
+    LiveOperation, NativeAction, OperationEvent, OperationOptions, OperationPlan, OperationPrompt,
+    OperationRecord, OperationState, PrefixArchitecture, PrefixSource, PromptChoice, PromptLevel,
+    PromptResponse, Recipe, RecipeFailure, RecipeFailureKind, RecipeFile, RecipeFont,
+    RecipeMaturity, RecipeStep, RecoveryManager, RegistryArchitecture, RestorePoint, Result, Store,
+    WinePrefix,
 };
 
-type PromptSenders = HashMap<(Uuid, Uuid), oneshot::Sender<String>>;
 const MAX_RECIPE_DOWNLOAD_BYTES: u64 = 16 * 1024 * 1024 * 1024;
 const MAX_LIVE_PROCESS_LOG_LINES: usize = 200;
 const MAX_PROCESS_LOG_LINE_CHARS: usize = 1_200;
 const PROCESS_FAILURE_TAIL_LINES: usize = 8;
 const MAX_PROCESS_FAILURE_DETAIL_CHARS: usize = 4_000;
+/// Download progress is emitted at most this often per operation.
+const PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
+/// A `.part` file untouched for this long belongs to a download that died (reads time out
+/// after 90 s), so it is safe to delete even if another process uses the same cache.
+const STALE_PARTIAL_AGE: Duration = Duration::from_secs(10 * 60);
+const CREATE_PREFIX_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+const INTERRUPTED_MESSAGE: &str =
+    "Interrupted: Bettertricks exited while this operation was running";
 
 pub trait OperationEventSink: Send + Sync + 'static {
     fn emit(&self, event: OperationEvent);
@@ -43,6 +56,68 @@ where
     }
 }
 
+/// Fetches one URL into `destination`, reporting progress through the context.
+#[async_trait]
+pub(crate) trait Fetcher: Send + Sync {
+    async fn fetch(
+        &self,
+        url: &str,
+        destination: &Path,
+        context: &mut ExecutionContext,
+    ) -> Result<()>;
+}
+
+struct HttpFetcher;
+
+#[async_trait]
+impl Fetcher for HttpFetcher {
+    async fn fetch(
+        &self,
+        url: &str,
+        destination: &Path,
+        context: &mut ExecutionContext,
+    ) -> Result<()> {
+        let mut builder = reqwest::Client::builder()
+            .user_agent(format!("Bettertricks/{}", env!("CARGO_PKG_VERSION")))
+            .https_only(true)
+            .connect_timeout(Duration::from_secs(30))
+            .read_timeout(Duration::from_secs(90));
+        if context.plan.options.torify {
+            builder = builder.proxy(reqwest::Proxy::all("socks5h://127.0.0.1:9050")?);
+        }
+        download_url(&builder.build()?, url, destination, context).await
+    }
+}
+
+struct LiveEntry {
+    plan: OperationPlan,
+    cancel: Arc<AtomicBool>,
+    sequence: Arc<AtomicU64>,
+    sink: Arc<dyn OperationEventSink>,
+    latest: Option<OperationEvent>,
+    prompt: Option<(OperationPrompt, oneshot::Sender<String>)>,
+}
+
+type LiveOperations = Arc<Mutex<HashMap<Uuid, LiveEntry>>>;
+
+/// Records the latest lifecycle event of each live operation so a reloaded UI can re-attach.
+struct TrackingSink {
+    id: Uuid,
+    live: LiveOperations,
+    inner: Arc<dyn OperationEventSink>,
+}
+
+impl OperationEventSink for TrackingSink {
+    fn emit(&self, event: OperationEvent) {
+        if event.log_line.is_none()
+            && let Some(entry) = self.live.lock().get_mut(&self.id)
+        {
+            entry.latest = Some(event.clone());
+        }
+        self.inner.emit(event);
+    }
+}
+
 #[derive(Clone)]
 pub struct OperationEngine {
     catalog: Catalog,
@@ -50,100 +125,230 @@ pub struct OperationEngine {
     store: Arc<Store>,
     recovery: RecoveryManager,
     legacy_host: LegacyVerbHost,
-    cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
-    prefix_locks: Arc<Mutex<HashMap<Uuid, Arc<AsyncMutex<()>>>>>,
+    locks: PrefixLocks,
+    live: LiveOperations,
     cache_locks: Arc<Mutex<HashMap<PathBuf, Arc<AsyncMutex<()>>>>>,
-    prompts: Arc<Mutex<PromptSenders>>,
+    fetcher: Arc<dyn Fetcher>,
+    /// `program trash <path>`; `gio` in production, a fake in tests so no test touches the
+    /// user's real Trash.
+    trash_program: PathBuf,
 }
 
 impl OperationEngine {
     pub fn new(catalog: Catalog, paths: AppPaths, store: Arc<Store>) -> Self {
         Self {
             recovery: RecoveryManager::new(paths.clone(), store.clone()),
-            legacy_host: LegacyVerbHost::discover_with_paths(&paths),
+            legacy_host: LegacyVerbHost::for_catalog(&paths, &catalog),
+            locks: PrefixLocks::new(&paths),
             catalog,
             paths,
             store,
-            cancellations: Arc::new(Mutex::new(HashMap::new())),
-            prefix_locks: Arc::new(Mutex::new(HashMap::new())),
+            live: Arc::new(Mutex::new(HashMap::new())),
             cache_locks: Arc::new(Mutex::new(HashMap::new())),
-            prompts: Arc::new(Mutex::new(HashMap::new())),
+            fetcher: Arc::new(HttpFetcher),
+            trash_program: PathBuf::from("gio"),
         }
     }
 
-    pub fn start(&self, plan: OperationPlan, sink: Arc<dyn OperationEventSink>) -> Result<Uuid> {
+    pub fn locks(&self) -> &PrefixLocks {
+        &self.locks
+    }
+
+    pub fn recovery(&self) -> &RecoveryManager {
+        &self.recovery
+    }
+
+    /// Resolves rows left non-terminal by a crash or quit: if no process holds the prefix
+    /// lock, nobody can still be running the operation, so it becomes `Interrupted` and its
+    /// restore point is released for restore or deletion. Safe to call at any time.
+    ///
+    /// Fails closed: only a lock that is positively free counts. A held lock, a missing lock
+    /// file or a probe error leaves the row alone, and the store refuses to overwrite a row
+    /// that finished meanwhile. Never waits.
+    pub fn reconcile_interrupted(&self) -> Result<usize> {
+        let mut resolved = 0;
+        for record in self.store.unfinished_operations()? {
+            if self.live.lock().contains_key(&record.id)
+                || self.locks.probe(record.prefix_id) != LockProbe::Free
+            {
+                continue;
+            }
+            if self
+                .store
+                .mark_interrupted(record.id, INTERRUPTED_MESSAGE)?
+            {
+                resolved += 1;
+            }
+        }
+        Ok(resolved)
+    }
+
+    async fn acquire(&self, prefix: &WinePrefix, holder: &str) -> Result<PrefixLock> {
+        self.lock_prefix(prefix.id, holder).await
+    }
+
+    /// Takes a prefix lock on a blocking thread. Refuses when an unfinished operation is
+    /// recorded for the prefix but its lock cannot be probed (lock file removed, probe error):
+    /// that operation might still be running, so a second one must not start.
+    async fn lock_prefix(&self, prefix_id: Uuid, holder: &str) -> Result<PrefixLock> {
+        if self.locks.probe(prefix_id) == LockProbe::Unknown
+            && self.store.unfinished_operations()?.iter().any(|record| {
+                record.prefix_id == prefix_id && !self.live.lock().contains_key(&record.id)
+            })
+        {
+            return Err(BettertricksError::Busy(
+                "an earlier operation on this prefix is still recorded as running and its lock cannot be checked; wait for it, or restart Bettertricks to resolve it".into(),
+            ));
+        }
+        let locks = self.locks.clone();
+        let holder = holder.to_owned();
+        tokio::task::spawn_blocking(move || locks.acquire(prefix_id, &holder))
+            .await
+            .map_err(|error| BettertricksError::Io(std::io::Error::other(error)))?
+    }
+
+    fn register_live(
+        &self,
+        plan: &OperationPlan,
+        sink: Arc<dyn OperationEventSink>,
+    ) -> (Arc<AtomicBool>, Arc<AtomicU64>, Arc<dyn OperationEventSink>) {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let sequence = Arc::new(AtomicU64::new(0));
+        let tracking: Arc<dyn OperationEventSink> = Arc::new(TrackingSink {
+            id: plan.id,
+            live: self.live.clone(),
+            inner: sink,
+        });
+        self.live.lock().insert(
+            plan.id,
+            LiveEntry {
+                plan: plan.clone(),
+                cancel: cancel.clone(),
+                sequence: sequence.clone(),
+                sink: tracking.clone(),
+                latest: None,
+                prompt: None,
+            },
+        );
+        (cancel, sequence, tracking)
+    }
+
+    /// Takes the prefix lock (failing fast with `Busy`), records the operation and runs it in
+    /// the background. Desktop entry point.
+    pub async fn start(
+        &self,
+        plan: OperationPlan,
+        sink: Arc<dyn OperationEventSink>,
+    ) -> Result<Uuid> {
         let id = plan.id;
-        let cancellation = Arc::new(AtomicBool::new(false));
-        self.cancellations.lock().insert(id, cancellation.clone());
-
-        let record = OperationRecord {
-            id,
-            prefix_id: plan.prefix.id,
-            prefix_name: plan.prefix.name.clone(),
-            recipes: plan.resolved_recipes.clone(),
-            state: OperationState::Planned,
-            created_at: Utc::now(),
-            started_at: None,
-            finished_at: None,
-            current_step: 0,
-            total_steps: plan.steps.len(),
-            message: Some("Waiting to start".into()),
-            failures: Vec::new(),
-        };
-        self.store.upsert_operation(&record)?;
-
+        let lock = self
+            .acquire(&plan.prefix, &format!("operation {id}"))
+            .await?;
+        self.store.upsert_operation(&planned_record(&plan))?;
+        let (cancel, sequence, sink) = self.register_live(&plan, sink);
         let engine = self.clone();
         tokio::spawn(async move {
-            let result = engine.run_plan(plan, cancellation, sink.clone()).await;
+            let result = engine.run_plan(plan, cancel, sequence, sink, lock).await;
             if let Err(error) = result {
                 tracing::error!(operation_id = %id, %error, "operation failed");
             }
-            engine.cancellations.lock().remove(&id);
+            engine.live.lock().remove(&id);
         });
         Ok(id)
     }
 
+    /// Same lifecycle as [`Self::start`], awaited in the caller. CLI entry point.
     pub async fn run(&self, plan: OperationPlan, sink: Arc<dyn OperationEventSink>) -> Result<()> {
-        let cancellation = Arc::new(AtomicBool::new(false));
-        self.cancellations
-            .lock()
-            .insert(plan.id, cancellation.clone());
-        let result = self.run_plan(plan.clone(), cancellation, sink).await;
-        self.cancellations.lock().remove(&plan.id);
+        let id = plan.id;
+        let lock = self
+            .acquire(&plan.prefix, &format!("operation {id}"))
+            .await?;
+        self.store.upsert_operation(&planned_record(&plan))?;
+        let (cancel, sequence, sink) = self.register_live(&plan, sink);
+        let result = self.run_plan(plan, cancel, sequence, sink, lock).await;
+        self.live.lock().remove(&id);
         result
     }
 
-    pub fn cancel(&self, operation_id: Uuid) -> Result<()> {
-        let cancellations = self.cancellations.lock();
-        let cancellation = cancellations
-            .get(&operation_id)
-            .ok_or_else(|| BettertricksError::OperationNotFound(operation_id.to_string()))?;
-        cancellation.store(true, Ordering::SeqCst);
-        drop(cancellations);
-
-        let prompt_ids = self
-            .prompts
+    pub fn live_operations(&self) -> Vec<LiveOperation> {
+        let mut operations = self
+            .live
             .lock()
-            .keys()
-            .filter_map(|(candidate_operation_id, prompt_id)| {
-                (*candidate_operation_id == operation_id).then_some(*prompt_id)
+            .values()
+            .map(|entry| LiveOperation {
+                plan: entry.plan.clone(),
+                state: entry
+                    .latest
+                    .as_ref()
+                    .map(|event| event.state)
+                    .unwrap_or(OperationState::Planned),
+                latest: entry.latest.clone(),
+                prompt: entry.prompt.as_ref().map(|(prompt, _)| prompt.clone()),
             })
             .collect::<Vec<_>>();
-        for prompt_id in prompt_ids {
-            if let Some(sender) = self.prompts.lock().remove(&(operation_id, prompt_id)) {
-                let _ = sender.send("cancel".into());
+        operations.sort_by_key(|operation| operation.plan.id);
+        operations
+    }
+
+    pub fn cancel(&self, operation_id: Uuid) -> Result<()> {
+        let (sink, event, prompt) = {
+            let mut live = self.live.lock();
+            let entry = live
+                .get_mut(&operation_id)
+                .ok_or_else(|| BettertricksError::OperationNotFound(operation_id.to_string()))?;
+            if entry.cancel.swap(true, Ordering::SeqCst) {
+                return Ok(());
             }
+            let latest = entry.latest.as_ref();
+            let event = OperationEvent {
+                operation_id,
+                sequence: entry.sequence.fetch_add(1, Ordering::SeqCst) + 1,
+                state: OperationState::Cancelling,
+                step: latest.map(|event| event.step).unwrap_or_default(),
+                total_steps: entry.plan.steps.len(),
+                recipe_id: latest.and_then(|event| event.recipe_id.clone()),
+                title: "Cancelling".into(),
+                detail: Some("Stopping Wine processes in this prefix".into()),
+                progress: latest.and_then(|event| event.progress),
+                prompt: None,
+                log_line: None,
+                failure: None,
+                timestamp: Utc::now(),
+            };
+            (entry.sink.clone(), event, entry.prompt.take())
+        };
+        if let Err(error) = self.store.set_live_operation_state(
+            operation_id,
+            OperationState::Cancelling,
+            "Cancelling",
+        ) {
+            tracing::warn!(%error, "could not record cancellation");
+        }
+        sink.emit(event);
+        if let Some((_, sender)) = prompt {
+            let _ = sender.send("cancel".into());
         }
         Ok(())
     }
 
     pub fn respond(&self, response: PromptResponse) -> Result<()> {
-        let sender = self
-            .prompts
-            .lock()
-            .remove(&(response.operation_id, response.prompt_id))
-            .ok_or_else(|| BettertricksError::OperationNotFound(response.prompt_id.to_string()))?;
+        let sender = {
+            let mut live = self.live.lock();
+            let entry = live.get_mut(&response.operation_id).ok_or_else(|| {
+                BettertricksError::OperationNotFound(response.operation_id.to_string())
+            })?;
+            match &entry.prompt {
+                Some((prompt, _)) if prompt.id == response.prompt_id => {}
+                _ => {
+                    return Err(BettertricksError::OperationNotFound(
+                        response.prompt_id.to_string(),
+                    ));
+                }
+            }
+            entry.prompt.take().map(|(_, sender)| sender)
+        };
         sender
+            .ok_or(BettertricksError::Cancelled)?
             .send(response.choice_id)
             .map_err(|_| BettertricksError::Cancelled)
     }
@@ -152,18 +357,18 @@ impl OperationEngine {
         &self,
         plan: OperationPlan,
         cancellation: Arc<AtomicBool>,
+        sequence: Arc<AtomicU64>,
         sink: Arc<dyn OperationEventSink>,
+        _lock: PrefixLock,
     ) -> Result<()> {
-        let prefix_lock = {
-            let mut locks = self.prefix_locks.lock();
-            locks
-                .entry(plan.prefix.id)
-                .or_insert_with(|| Arc::new(AsyncMutex::new(())))
-                .clone()
-        };
-        let _guard = prefix_lock.lock().await;
-        let mut context =
-            ExecutionContext::new(plan.clone(), cancellation, sink, self.paths.clone());
+        let mut context = ExecutionContext::new(
+            plan.clone(),
+            cancellation,
+            sink,
+            self.paths.clone(),
+            self.store.clone(),
+        );
+        context.sequence = sequence;
         let recipes = match plan_recipe_map(&self.catalog, &plan) {
             Ok(recipes) => recipes,
             Err(error) => return self.finish_error(&mut context, error).await,
@@ -172,12 +377,7 @@ impl OperationEngine {
             return self.finish_error(&mut context, error).await;
         }
 
-        self.update_record(
-            &context,
-            OperationState::Preflight,
-            Some("Running preflight checks"),
-            false,
-        )?;
+        context.transition(OperationState::Preflight, Some("Running preflight checks"));
         context.emit(
             OperationState::Preflight,
             "Checking operation safety",
@@ -251,6 +451,9 @@ impl OperationEngine {
         }
 
         if plan.options.create_restore_point && plan.prefix.exists {
+            if context.cancelled() {
+                return self.finish_cancelled(&mut context).await;
+            }
             context.emit(
                 OperationState::Preflight,
                 "Creating a restore point",
@@ -262,14 +465,12 @@ impl OperationEngine {
                 return self.finish_error(&mut context, error).await;
             }
         }
+        if context.cancelled() {
+            return self.finish_cancelled(&mut context).await;
+        }
 
         context.started_at = Some(Utc::now());
-        self.update_record(
-            &context,
-            OperationState::Running,
-            Some("Operation running"),
-            false,
-        )?;
+        context.transition(OperationState::Running, Some("Operation running"));
         context.emit(
             OperationState::Running,
             "Operation started",
@@ -319,12 +520,10 @@ impl OperationEngine {
                 context.log(format!("[{}] SKIPPED: {}", recipe.id, failure.message));
                 context.emit_failure(failure);
                 unsuccessful_recipes.insert(recipe.id.clone());
-                self.update_record(
-                    &context,
+                context.transition(
                     OperationState::Running,
                     Some("Continuing after a dependency failure"),
-                    false,
-                )?;
+                );
                 continue;
             }
 
@@ -349,12 +548,10 @@ impl OperationEngine {
                     context.log(format!("[{}] FAILED: {}", recipe.id, failure.message));
                     context.emit_failure(failure);
                     unsuccessful_recipes.insert(recipe.id.clone());
-                    self.update_record(
-                        &context,
+                    context.transition(
                         OperationState::Running,
                         Some("Continuing after a component failure"),
-                        false,
-                    )?;
+                    );
                 }
             }
         }
@@ -369,12 +566,7 @@ impl OperationEngine {
                 Some(1.0),
                 None,
             );
-            self.update_record(
-                &context,
-                OperationState::Succeeded,
-                Some("Operation complete"),
-                true,
-            )?;
+            context.transition(OperationState::Succeeded, Some("Operation complete"));
             Ok(())
         } else {
             let failed = context
@@ -392,7 +584,7 @@ impl OperationEngine {
                 Some(1.0),
                 None,
             );
-            self.update_record(&context, OperationState::Failed, Some(&summary), true)?;
+            context.transition(OperationState::Failed, Some(&summary));
             Err(BettertricksError::Recipe(summary))
         }
     }
@@ -411,10 +603,20 @@ impl OperationEngine {
                 Some(context.fraction()),
                 None,
             );
-            self.update_record(context, OperationState::Running, Some(&title), false)?;
+            context.transition(OperationState::Running, Some(&title));
             self.run_legacy_recipe(recipe, context).await?;
         }
 
+        let scratch = context
+            .plan
+            .prefix
+            .path
+            .join("drive_c/windows/temp/bettertricks")
+            .join(&recipe.id);
+        if recipe.maturity == RecipeMaturity::Native {
+            // Never let a previous run's extraction satisfy this run's steps.
+            remove_scratch(&scratch, &context.plan.prefix.path).await?;
+        }
         for step in &recipe.steps {
             if context.cancelled() {
                 return Err(BettertricksError::Cancelled);
@@ -428,7 +630,7 @@ impl OperationEngine {
                 Some(context.fraction()),
                 None,
             );
-            self.update_record(context, OperationState::Running, Some(&title), false)?;
+            context.transition(OperationState::Running, Some(&title));
             self.execute_step(recipe, step, context).await?;
         }
 
@@ -441,6 +643,9 @@ impl OperationEngine {
                 ));
                 self.execute_step(recipe, step, context).await?;
             }
+        }
+        if !context.plan.options.no_clean {
+            remove_scratch(&scratch, &context.plan.prefix.path).await?;
         }
         append_installed_log(&context.plan.prefix.path, &recipe.id).await
     }
@@ -460,11 +665,8 @@ impl OperationEngine {
             &context.plan.prefix,
             &context.plan.options,
         )?;
-        command
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
-        let mut child = command.spawn()?;
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        let mut child = spawn_supervised(&mut command).await?;
         let (sender, mut receiver) = mpsc::channel(128);
         let stdout_task = child
             .stdout
@@ -491,8 +693,11 @@ impl OperationEngine {
                 );
             }
             if context.cancelled() {
-                let _ = child.start_kill();
-                let _ = child.wait().await;
+                context.log(format!(
+                    "[{}] Stopping Winetricks, its installers and the prefix's wineserver",
+                    recipe.id
+                ));
+                stop_process_group(&mut child, Some(&wine_scope(&context.plan.prefix))).await;
                 return Err(BettertricksError::Cancelled);
             }
             if let Some(status) = child.try_wait()? {
@@ -674,7 +879,11 @@ impl OperationEngine {
             }
             RecipeStep::Remove { path, recursive } => {
                 let path = context.expand_path(recipe, path)?;
-                ensure_mutation_in_prefix(&path, &context.plan.prefix.path, &context.paths.cache)?;
+                ensure_mutation_in_prefix(
+                    &path,
+                    &context.plan.prefix.path,
+                    &context.paths.winetricks_cache,
+                )?;
                 if path.is_dir() && *recursive {
                     tokio::fs::remove_dir_all(path).await?;
                 } else if path.exists() {
@@ -838,6 +1047,9 @@ impl OperationEngine {
         }
     }
 
+    /// Cache entry lifecycle: Present → verified, or quarantined and treated as Absent;
+    /// Absent → `.part` per URL → verified and renamed; a mismatching mirror falls through to
+    /// the next URL and never leaves its `.part` behind.
     async fn download(
         &self,
         recipe: &Recipe,
@@ -859,9 +1071,29 @@ impl OperationEngine {
             &context.paths.winetricks_cache,
         )?;
         if destination.is_file() {
-            verify_checksum(&destination, file.sha256.as_deref()).await?;
-            context.log(format!("Using cached {}", destination.display()));
-            return Ok(());
+            match verify_checksum(&destination, file.sha256.as_deref()).await {
+                Ok(()) => {
+                    context.log(format!("Using cached {}", destination.display()));
+                    return Ok(());
+                }
+                Err(BettertricksError::ChecksumMismatch { .. }) => {
+                    // Keep only the latest rejected copy per entry so repeated corruption
+                    // cannot grow the cache without bound.
+                    remove_quarantined(&destination, &file.filename).await;
+                    let quarantined = destination.with_file_name(format!(
+                        "{}.bettertricks-invalid-{}",
+                        file.filename,
+                        Uuid::new_v4()
+                    ));
+                    tokio::fs::rename(&destination, &quarantined).await?;
+                    context.log(format!(
+                        "Cached {} failed its checksum; moved it to {} and downloading again",
+                        destination.display(),
+                        quarantined.display()
+                    ));
+                }
+                Err(error) => return Err(error),
+            }
         }
         if file.manual {
             return Err(BettertricksError::Unsupported(format!(
@@ -873,6 +1105,7 @@ impl OperationEngine {
         if let Some(parent) = destination.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
+        remove_stale_partials(&destination, &file.filename).await;
         let partial = destination.with_file_name(format!(
             "{}.{}.part",
             destination
@@ -882,34 +1115,27 @@ impl OperationEngine {
             context.plan.id
         ));
 
-        let mut builder = reqwest::Client::builder()
-            .user_agent(format!("Bettertricks/{}", env!("CARGO_PKG_VERSION")))
-            .https_only(true)
-            .connect_timeout(std::time::Duration::from_secs(30))
-            .read_timeout(std::time::Duration::from_secs(90));
-        if context.plan.options.torify {
-            builder = builder.proxy(reqwest::Proxy::all("socks5h://127.0.0.1:9050")?);
-        }
-        let client = builder.build()?;
         let mut last_error = None;
         for url in &file.urls {
             if context.cancelled() {
                 return Err(BettertricksError::Cancelled);
             }
-            match download_url(&client, url, &partial, context).await {
+            let result = match self.fetcher.fetch(url, &partial, context).await {
+                Ok(()) => verify_checksum(&partial, file.sha256.as_deref()).await,
+                Err(error) => Err(error),
+            };
+            match result {
                 Ok(()) => {
-                    verify_checksum(&partial, file.sha256.as_deref()).await?;
                     tokio::fs::rename(&partial, &destination).await?;
                     return Ok(());
                 }
                 Err(error) => {
+                    let _ = tokio::fs::remove_file(&partial).await;
                     if matches!(error, BettertricksError::Cancelled) {
-                        let _ = tokio::fs::remove_file(&partial).await;
                         return Err(error);
                     }
                     context.log(format!("Download source failed: {url}: {error}"));
                     last_error = Some(error);
-                    let _ = tokio::fs::remove_file(&partial).await;
                 }
             }
         }
@@ -954,10 +1180,17 @@ impl OperationEngine {
             ],
         };
         let (sender, receiver) = oneshot::channel();
-        self.prompts
-            .lock()
-            .insert((context.plan.id, prompt_id), sender);
-        self.update_record(context, OperationState::WaitingForUser, Some(title), false)?;
+        {
+            // Registered under the same lock `cancel` takes, so a cancel can never miss it.
+            let mut live = self.live.lock();
+            if context.cancelled() {
+                return Err(BettertricksError::Cancelled);
+            }
+            if let Some(entry) = live.get_mut(&context.plan.id) {
+                entry.prompt = Some((prompt.clone(), sender));
+            }
+        }
+        context.transition(OperationState::WaitingForUser, Some(title));
         context.emit(
             OperationState::WaitingForUser,
             title,
@@ -966,7 +1199,8 @@ impl OperationEngine {
             Some(prompt),
         );
         let choice = receiver.await.map_err(|_| BettertricksError::Cancelled)?;
-        if choice == "continue" {
+        if choice == "continue" && !context.cancelled() {
+            context.transition(OperationState::Running, Some(title));
             Ok(())
         } else {
             Err(BettertricksError::Cancelled)
@@ -1159,7 +1393,7 @@ impl OperationEngine {
             Some(context.fraction()),
             None,
         );
-        self.update_record(context, OperationState::Failed, Some(&detail), true)?;
+        context.transition(OperationState::Failed, Some(&detail));
         Err(error)
     }
 
@@ -1172,36 +1406,308 @@ impl OperationEngine {
             Some(context.fraction()),
             None,
         );
-        self.update_record(
-            context,
-            OperationState::Cancelled,
-            Some("Operation cancelled"),
-            true,
-        )?;
+        context.transition(OperationState::Cancelled, Some("Operation cancelled"));
         Err(BettertricksError::Cancelled)
     }
 
-    fn update_record(
+    /// Manual restore point, under the prefix lock.
+    pub async fn create_restore_point(&self, prefix: &WinePrefix) -> Result<RestorePoint> {
+        let _lock = self.acquire(prefix, "restore point").await?;
+        self.recovery.create(prefix, None).await
+    }
+
+    /// Restores a snapshot under its prefix's lock. With `replace_existing`, a prefix that is
+    /// still on disk is first moved to the desktop Trash (recoverable). A manually registered
+    /// prefix is registered again so it reappears in the app.
+    pub async fn restore(&self, point: &RestorePoint, replace_existing: bool) -> Result<()> {
+        let _lock = self.lock_prefix(point.prefix_id, "restore").await?;
+        if replace_existing && point.prefix_path.exists() {
+            let path = crate::validate_existing_prefix_path(&point.prefix_path)?;
+            move_to_trash(&self.trash_program, &path).await?;
+        }
+        self.recovery.restore(point).await?;
+        if point.prefix_source == Some(PrefixSource::Manual) {
+            self.store.register_prefix(
+                &point.prefix_path,
+                &point.prefix_name,
+                PrefixSource::Manual,
+                point.runtime.as_deref(),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Moves a prefix to the desktop Trash under its lock and forgets a manual registration.
+    pub async fn trash_prefix(&self, prefix: &WinePrefix) -> Result<()> {
+        let _lock = self.acquire(prefix, "move to Trash").await?;
+        let path = crate::validate_existing_prefix_path(&prefix.path)?;
+        move_to_trash(&self.trash_program, &path).await?;
+        let _ = self.store.unregister_prefix(&path);
+        Ok(())
+    }
+
+    /// Runs a reviewed custom `.verb` under the prefix lock, after a restore point, in its own
+    /// process group.
+    pub async fn run_legacy_verb(
         &self,
-        context: &ExecutionContext,
-        state: OperationState,
-        message: Option<&str>,
-        finished: bool,
+        info: &LegacyVerbInfo,
+        prefix: &WinePrefix,
+        options: &OperationOptions,
     ) -> Result<()> {
-        self.store.upsert_operation(&OperationRecord {
-            id: context.plan.id,
-            prefix_id: context.plan.prefix.id,
-            prefix_name: context.plan.prefix.name.clone(),
-            recipes: context.plan.resolved_recipes.clone(),
-            state,
-            created_at: context.created_at,
-            started_at: context.started_at,
-            finished_at: finished.then_some(context.finished_at.unwrap_or_else(Utc::now)),
-            current_step: context.step,
-            total_steps: context.plan.steps.len(),
-            message: message.map(str::to_owned),
-            failures: context.failures.clone(),
-        })
+        let _lock = self
+            .acquire(prefix, &format!("custom verb {}", info.id))
+            .await?;
+        if prefix.exists {
+            self.recovery.create(prefix, None).await?;
+        }
+        let mut command = self.legacy_host.verb_command(info, prefix, options)?;
+        let mut child = spawn_supervised(&mut command).await?;
+        let status = wait_supervised(&mut child, || false, None).await?;
+        if !status.success() {
+            return Err(BettertricksError::CommandFailed {
+                program: "winetricks".into(),
+                code: status.code(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Starts a Wine tool (winecfg, regedit, an installer…) in the prefix. The prefix stays
+    /// locked until the tool exits, so no operation can change the prefix underneath it.
+    /// The tool runs in its own process group, which [`crate::stop_all_groups`] kills when the
+    /// app quits.
+    pub async fn launch_tool(
+        &self,
+        prefix: &WinePrefix,
+        program: &str,
+        arguments: &[String],
+    ) -> Result<()> {
+        let lock = self.acquire(prefix, &format!("{program} window")).await?;
+        let mut command = Command::new(wine_binary(prefix));
+        command
+            .arg(program)
+            .args(arguments)
+            .env("WINEPREFIX", &prefix.path)
+            .stdin(Stdio::null());
+        let mut child = crate::process::spawn_group(&mut command).await?;
+        tokio::spawn(async move {
+            let _ = child.wait().await;
+            drop(lock);
+        });
+        Ok(())
+    }
+
+    /// Initializes a new prefix in a staging directory and publishes it atomically, under the
+    /// lock of the prefix id it will have.
+    pub async fn create_prefix(
+        &self,
+        path: &Path,
+        name: &str,
+        architecture: PrefixArchitecture,
+        runtime: Option<&Path>,
+    ) -> Result<()> {
+        let path = crate::validate_new_prefix_path(path)?;
+        let _lock = self
+            .lock_prefix(crate::prefix::prefix_id_for_path(&path), "create prefix")
+            .await?;
+        if path.exists() && path.read_dir()?.next().is_some() {
+            return Err(BettertricksError::Conflict(
+                "The selected directory is not empty".into(),
+            ));
+        }
+        let parent = path.parent().ok_or_else(|| {
+            BettertricksError::Security("Prefix path has no parent directory".into())
+        })?;
+        tokio::fs::create_dir_all(parent).await?;
+        let file_name = path.file_name().ok_or_else(|| {
+            BettertricksError::Security("Prefix path has no directory name".into())
+        })?;
+        let staging = parent.join(format!(
+            ".{}.bettertricks-create-{}.partial",
+            file_name.to_string_lossy(),
+            Uuid::new_v4()
+        ));
+        let staged = WinePrefix {
+            id: Uuid::nil(),
+            name: name.into(),
+            path: staging.clone(),
+            source: PrefixSource::Manual,
+            architecture,
+            runtime: runtime.map(Path::to_path_buf),
+            runtime_label: None,
+            managed: false,
+            exists: false,
+            installed_verbs: Vec::new(),
+            size_bytes: None,
+            last_modified: None,
+            status: crate::PrefixStatus::Missing,
+        };
+        let scope = wine_scope(&staged);
+        let result = async {
+            let mut boot = wineboot_command(&staged);
+            let mut child = spawn_supervised(&mut boot).await?;
+            let deadline = Instant::now() + CREATE_PREFIX_TIMEOUT;
+            let status = wait_supervised(&mut child, || Instant::now() > deadline, Some(&scope))
+                .await
+                .map_err(|error| match error {
+                    BettertricksError::Cancelled => BettertricksError::Unsupported(
+                        "wineboot did not finish within five minutes".into(),
+                    ),
+                    error => error,
+                })?;
+            if !status.success() {
+                return Err(BettertricksError::CommandFailed {
+                    program: "wineboot".into(),
+                    code: status.code(),
+                });
+            }
+            if !crate::process::wineserver_idle(
+                &scope.wineserver,
+                &staging,
+                Duration::from_secs(60),
+            )
+            .await
+            {
+                return Err(BettertricksError::Unsupported(
+                    "wineserver did not finish prefix initialization cleanly".into(),
+                ));
+            }
+            if path.exists() {
+                tokio::fs::remove_dir(&path).await.map_err(|error| {
+                    BettertricksError::Conflict(format!(
+                        "The target directory stopped being empty: {error}"
+                    ))
+                })?;
+            }
+            tokio::fs::rename(&staging, &path).await?;
+            Ok(())
+        }
+        .await;
+        if result.is_err() {
+            crate::process::kill_wineserver(&scope).await;
+            let _ = tokio::fs::remove_dir_all(&staging).await;
+            return result;
+        }
+        self.store
+            .register_prefix(&path, name, PrefixSource::Manual, runtime)
+    }
+}
+
+fn planned_record(plan: &OperationPlan) -> OperationRecord {
+    OperationRecord {
+        id: plan.id,
+        prefix_id: plan.prefix.id,
+        prefix_name: plan.prefix.name.clone(),
+        recipes: plan.resolved_recipes.clone(),
+        state: OperationState::Planned,
+        created_at: Utc::now(),
+        started_at: None,
+        finished_at: None,
+        current_step: 0,
+        total_steps: plan.steps.len(),
+        message: Some("Waiting to start".into()),
+        failures: Vec::new(),
+    }
+}
+
+async fn move_to_trash(program: &Path, path: &Path) -> Result<()> {
+    let mut command = Command::new(program);
+    command.arg("trash").arg(path);
+    let status = crate::process::spawn_retrying(&mut command)
+        .await?
+        .wait()
+        .await?;
+    if !status.success() {
+        return Err(BettertricksError::CommandFailed {
+            program: "gio trash".into(),
+            code: status.code(),
+        });
+    }
+    Ok(())
+}
+
+pub(crate) fn wine_binary(prefix: &WinePrefix) -> PathBuf {
+    prefix
+        .runtime
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("wine"))
+}
+
+pub(crate) fn wine_scope(prefix: &WinePrefix) -> WineScope {
+    WineScope {
+        wineserver: wine_tool(prefix, "wineserver"),
+        prefix: prefix.path.clone(),
+    }
+}
+
+fn wineboot_command(prefix: &WinePrefix) -> Command {
+    let mut command = Command::new(wine_binary(prefix));
+    command
+        .arg("wineboot")
+        .arg("-u")
+        .env("WINEPREFIX", &prefix.path)
+        .env(
+            "WINEARCH",
+            match prefix.architecture {
+                PrefixArchitecture::Win32 => "win32",
+                _ => "win64",
+            },
+        );
+    command
+}
+
+async fn remove_scratch(scratch: &Path, prefix: &Path) -> Result<()> {
+    match tokio::fs::symlink_metadata(scratch).await {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
+            ensure_mutation_in_prefix(scratch, prefix, prefix)?;
+            tokio::fs::remove_dir_all(scratch).await?;
+        }
+        Ok(_) => tokio::fs::remove_file(scratch).await?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    Ok(())
+}
+
+async fn remove_quarantined(destination: &Path, filename: &str) {
+    let Some(parent) = destination.parent() else {
+        return;
+    };
+    let Ok(mut entries) = tokio::fs::read_dir(parent).await else {
+        return;
+    };
+    let prefix = format!("{filename}.bettertricks-invalid-");
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if entry.file_name().to_string_lossy().starts_with(&prefix) {
+            let _ = tokio::fs::remove_file(entry.path()).await;
+        }
+    }
+}
+
+/// Deletes `.part` files of this cache entry that no live download is writing to.
+async fn remove_stale_partials(destination: &Path, filename: &str) {
+    let Some(parent) = destination.parent() else {
+        return;
+    };
+    let Ok(mut entries) = tokio::fs::read_dir(parent).await else {
+        return;
+    };
+    let prefix = format!("{filename}.");
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with(&prefix) || !name.ends_with(".part") {
+            continue;
+        }
+        let stale = entry
+            .metadata()
+            .await
+            .and_then(|metadata| metadata.modified())
+            .ok()
+            .and_then(|modified| modified.elapsed().ok())
+            .is_some_and(|age| age > STALE_PARTIAL_AGE);
+        if stale {
+            let _ = tokio::fs::remove_file(entry.path()).await;
+        }
     }
 }
 
@@ -1383,7 +1889,7 @@ fn registry_string(value: &str) -> Result<String> {
     Ok(value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
-fn wine_tool(prefix: &WinePrefix, tool: &str) -> PathBuf {
+pub(crate) fn wine_tool(prefix: &WinePrefix, tool: &str) -> PathBuf {
     let Some(runtime) = &prefix.runtime else {
         return PathBuf::from(tool);
     };
@@ -1572,7 +2078,7 @@ async fn remove_mono(context: &mut ExecutionContext) -> Result<()> {
             .windows(b"WINE_MONO_OVERRIDES".len())
             .any(|window| window == b"WINE_MONO_OVERRIDES")
         {
-            ensure_mutation_in_prefix(&path, &prefix.path, &context.paths.cache)?;
+            ensure_mutation_in_prefix(&path, &prefix.path, &context.paths.winetricks_cache)?;
             tokio::fs::remove_file(path).await?;
         }
     }
@@ -1580,12 +2086,15 @@ async fn remove_mono(context: &mut ExecutionContext) -> Result<()> {
     Ok(())
 }
 
-struct ExecutionContext {
+pub(crate) struct ExecutionContext {
     plan: OperationPlan,
     cancellation: Arc<AtomicBool>,
     sink: Arc<dyn OperationEventSink>,
     paths: AppPaths,
-    sequence: u64,
+    store: Arc<Store>,
+    state: OperationState,
+    last_progress: Option<Instant>,
+    sequence: Arc<AtomicU64>,
     step: usize,
     recipe_id: Option<String>,
     created_at: chrono::DateTime<Utc>,
@@ -1600,13 +2109,17 @@ impl ExecutionContext {
         cancellation: Arc<AtomicBool>,
         sink: Arc<dyn OperationEventSink>,
         paths: AppPaths,
+        store: Arc<Store>,
     ) -> Self {
         Self {
             plan,
             cancellation,
             sink,
             paths,
-            sequence: 0,
+            store,
+            state: OperationState::Planned,
+            last_progress: None,
+            sequence: Arc::new(AtomicU64::new(0)),
             step: 0,
             recipe_id: None,
             created_at: Utc::now(),
@@ -1618,6 +2131,82 @@ impl ExecutionContext {
 
     fn cancelled(&self) -> bool {
         self.cancellation.load(Ordering::SeqCst)
+    }
+
+    fn next_sequence(&self) -> u64 {
+        self.sequence.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// A live state requested while a cancel is pending is reported as `Cancelling`.
+    fn effective(&self, state: OperationState) -> OperationState {
+        if self.cancelled() && !state.is_terminal() {
+            OperationState::Cancelling
+        } else {
+            state
+        }
+    }
+
+    /// The one place the operation lifecycle advances: validates the transition and persists
+    /// it. Non-terminal write failures are logged so a busy database cannot strand the
+    /// operation; the terminal event has always been emitted before this is called.
+    fn transition(&mut self, next: OperationState, message: Option<&str>) {
+        let next = self.effective(next);
+        if !self.state.can_transition_to(next) {
+            tracing::error!(from = ?self.state, to = ?next, "rejected operation state transition");
+            debug_assert!(false, "invalid transition {:?} -> {next:?}", self.state);
+            return;
+        }
+        self.state = next;
+        let record = OperationRecord {
+            id: self.plan.id,
+            prefix_id: self.plan.prefix.id,
+            prefix_name: self.plan.prefix.name.clone(),
+            recipes: self.plan.resolved_recipes.clone(),
+            state: next,
+            created_at: self.created_at,
+            started_at: self.started_at,
+            finished_at: next
+                .is_terminal()
+                .then(|| self.finished_at.unwrap_or_else(Utc::now)),
+            current_step: self.step,
+            total_steps: self.plan.steps.len(),
+            message: message.map(str::to_owned),
+            failures: self.failures.clone(),
+        };
+        let attempts = if next.is_terminal() { 3 } else { 1 };
+        for attempt in 1..=attempts {
+            match self.store.upsert_operation(&record) {
+                Ok(()) => break,
+                Err(error) => tracing::warn!(%error, attempt, "could not persist operation state"),
+            }
+        }
+    }
+
+    /// Download progress, throttled per operation so a large file cannot flood the UI.
+    fn download_progress(&mut self, downloaded: u64, total: Option<u64>) {
+        let Some(total) = total.filter(|total| *total > 0) else {
+            return;
+        };
+        let now = Instant::now();
+        if downloaded < total
+            && self
+                .last_progress
+                .is_some_and(|last| now.duration_since(last) < PROGRESS_INTERVAL)
+        {
+            return;
+        }
+        self.last_progress = Some(now);
+        self.emit(
+            OperationState::Running,
+            "Downloading",
+            Some(format!(
+                "{} of {}",
+                format_bytes(downloaded),
+                format_bytes(total)
+            )),
+            Some(downloaded as f64 / total as f64),
+            None,
+        );
     }
 
     fn fraction(&self) -> f64 {
@@ -1636,10 +2225,10 @@ impl ExecutionContext {
         progress: Option<f64>,
         prompt: Option<OperationPrompt>,
     ) {
-        self.sequence += 1;
+        let state = self.effective(state);
         self.sink.emit(OperationEvent {
             operation_id: self.plan.id,
-            sequence: self.sequence,
+            sequence: self.next_sequence(),
             state,
             step: self.step,
             total_steps: self.plan.steps.len(),
@@ -1662,11 +2251,10 @@ impl ExecutionContext {
             }
         };
         self.failures.push(failure.clone());
-        self.sequence += 1;
         self.sink.emit(OperationEvent {
             operation_id: self.plan.id,
-            sequence: self.sequence,
-            state: OperationState::Running,
+            sequence: self.next_sequence(),
+            state: self.effective(self.state),
             step: self.step,
             total_steps: self.plan.steps.len(),
             recipe_id: Some(failure.recipe_id.clone()),
@@ -1682,11 +2270,10 @@ impl ExecutionContext {
 
     fn log(&mut self, line: String) {
         let line = sanitize_log(line);
-        self.sequence += 1;
         self.sink.emit(OperationEvent {
             operation_id: self.plan.id,
-            sequence: self.sequence,
-            state: OperationState::Running,
+            sequence: self.next_sequence(),
+            state: self.effective(self.state),
             step: self.step,
             total_steps: self.plan.steps.len(),
             recipe_id: self.recipe_id.clone(),
@@ -1801,25 +2388,23 @@ fn is_64_bit_prefix(prefix: &WinePrefix) -> bool {
 }
 
 async fn initialize_prefix(prefix: &WinePrefix, context: &ExecutionContext) -> Result<()> {
+    // Never run wineboot over a directory that holds something other than a Wine prefix.
+    if prefix.path.exists() && prefix.path.read_dir()?.next().is_some() {
+        return Err(BettertricksError::Conflict(format!(
+            "{} is not an initialized Wine prefix and is not empty",
+            prefix.path.display()
+        )));
+    }
     tokio::fs::create_dir_all(&prefix.path).await?;
-    let wine = prefix
-        .runtime
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("wine"));
-    let status = Command::new(wine)
-        .arg("wineboot")
-        .arg("-u")
-        .env("WINEPREFIX", &prefix.path)
-        .env(
-            "WINEARCH",
-            match prefix.architecture {
-                crate::PrefixArchitecture::Win32 => "win32",
-                _ => "win64",
-            },
-        )
-        .status()
-        .await?;
-    if !status.success() || context.cancelled() {
+    let mut command = wineboot_command(prefix);
+    let mut child = spawn_supervised(&mut command).await?;
+    let status = wait_supervised(
+        &mut child,
+        || context.cancelled(),
+        Some(&wine_scope(prefix)),
+    )
+    .await?;
+    if !status.success() {
         return Err(BettertricksError::CommandFailed {
             program: "wineboot".into(),
             code: status.code(),
@@ -1856,19 +2441,7 @@ async fn download_url(
         }
         output.write_all(&chunk).await?;
         downloaded += chunk.len() as u64;
-        if let Some(total) = total.filter(|total| *total > 0) {
-            context.emit(
-                OperationState::Running,
-                "Downloading",
-                Some(format!(
-                    "{} of {}",
-                    format_bytes(downloaded),
-                    format_bytes(total)
-                )),
-                Some(downloaded as f64 / total as f64),
-                None,
-            );
-        }
+        context.download_progress(downloaded, total);
     }
     output.flush().await?;
     Ok(())
@@ -2020,28 +2593,21 @@ async fn install_fonts(
 async fn wait_for_wineserver(context: &mut ExecutionContext) -> Result<()> {
     let tool = wine_tool(&context.plan.prefix, "wineserver");
     context.log(format!("{} -w", tool.display()));
-    let mut child = Command::new(&tool)
+    let mut command = Command::new(&tool);
+    command
         .arg("-w")
         .current_dir(context.plan.prefix.path.join("drive_c"))
-        .env("WINEPREFIX", &context.plan.prefix.path)
-        .spawn()?;
-    loop {
-        if context.cancelled() {
-            let _ = child.start_kill();
-            let _ = child.wait().await;
-            return Err(BettertricksError::Cancelled);
-        }
-        if let Some(status) = child.try_wait()? {
-            return if status.success() {
-                Ok(())
-            } else {
-                Err(BettertricksError::CommandFailed {
-                    program: tool.to_string_lossy().into_owned(),
-                    code: status.code(),
-                })
-            };
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        .env("WINEPREFIX", &context.plan.prefix.path);
+    let mut child = spawn_supervised(&mut command).await?;
+    let scope = wine_scope(&context.plan.prefix);
+    let status = wait_supervised(&mut child, || context.cancelled(), Some(&scope)).await?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(BettertricksError::CommandFailed {
+            program: tool.to_string_lossy().into_owned(),
+            code: status.code(),
+        })
     }
 }
 
@@ -2100,24 +2666,15 @@ async fn extract_archive(
     };
     let program = command.as_std().get_program().to_string_lossy().to_string();
     context.log(format!("Extracting {} with {program}", source.display()));
-    let mut child = command.spawn()?;
-    loop {
-        if context.cancelled() {
-            let _ = child.start_kill();
-            let _ = child.wait().await;
-            return Err(BettertricksError::Cancelled);
-        }
-        if let Some(status) = child.try_wait()? {
-            return if status.success() {
-                Ok(())
-            } else {
-                Err(BettertricksError::CommandFailed {
-                    program,
-                    code: status.code(),
-                })
-            };
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let mut child = spawn_supervised(&mut command).await?;
+    let status = wait_supervised(&mut child, || context.cancelled(), None).await?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(BettertricksError::CommandFailed {
+            program,
+            code: status.code(),
+        })
     }
 }
 
@@ -2128,11 +2685,7 @@ async fn run_wine(
     environment: &BTreeMap<String, String>,
     context: &mut ExecutionContext,
 ) -> Result<()> {
-    let wine = prefix
-        .runtime
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("wine"));
-    let mut command = Command::new(wine);
+    let mut command = Command::new(wine_binary(prefix));
     command
         .arg(program)
         .args(arguments)
@@ -2145,24 +2698,20 @@ async fn run_wine(
         command.env(key, value);
     }
     context.log(format!("wine {program} {}", shell_words::join(arguments)));
-    let mut child = command.spawn()?;
-    loop {
-        if context.cancelled() {
-            let _ = child.start_kill();
-            let _ = child.wait().await;
-            return Err(BettertricksError::Cancelled);
-        }
-        if let Some(status) = child.try_wait()? {
-            if status.success() {
-                return Ok(());
-            }
-            return Err(BettertricksError::CommandFailed {
-                program: program.into(),
-                code: status.code(),
-            });
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let mut child = spawn_supervised(&mut command).await?;
+    let status = wait_supervised(
+        &mut child,
+        || context.cancelled(),
+        Some(&wine_scope(prefix)),
+    )
+    .await?;
+    if status.success() {
+        return Ok(());
     }
+    Err(BettertricksError::CommandFailed {
+        program: program.into(),
+        code: status.code(),
+    })
 }
 
 async fn import_registry(
@@ -2545,6 +3094,7 @@ upstream_verb = "hosted"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let plan = crate::Planner::new(catalog.clone())
             .plan(
@@ -2675,6 +3225,7 @@ upstream_verb = "independent_component"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let plan = crate::Planner::new(catalog.clone())
             .plan(
@@ -2780,6 +3331,7 @@ upstream_verb = "hosted"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let plan = crate::Planner::new(catalog.clone())
             .plan(
@@ -2823,6 +3375,581 @@ upstream_verb = "hosted"
             .unwrap();
         assert!(failure.message.contains("exited with code 42"));
         assert!(failure.message.contains("server rejected checksum payload"));
+    }
+
+    /// A released lock may read held for a few ms (see `RELEASE_GRACE`); poll briefly.
+    async fn wait_until_free(locks: &PrefixLocks, prefix: Uuid) -> bool {
+        for _ in 0..100 {
+            if locks.probe(prefix) == LockProbe::Free {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        false
+    }
+
+    fn test_prefix(path: PathBuf, runtime: Option<PathBuf>) -> WinePrefix {
+        WinePrefix {
+            id: crate::prefix_id_for_path(&path),
+            name: "Test".into(),
+            path,
+            source: crate::PrefixSource::Manual,
+            architecture: crate::PrefixArchitecture::Wow64,
+            runtime,
+            runtime_label: None,
+            managed: false,
+            exists: true,
+            installed_verbs: Vec::new(),
+            size_bytes: None,
+            last_modified: None,
+            status: Default::default(),
+        }
+    }
+
+    fn write_recipe(root: &Path, id: &str, body: &str, upstream_tag: &str) {
+        std::fs::write(
+            root.join(format!("{id}.toml")),
+            format!(
+                "schema = 1\nid = \"{id}\"\ncategory = \"settings\"\ntitle = \"{id}\"\n{body}\n[source]\nupstream_tag = \"{upstream_tag}\"\nupstream_verb = \"{id}\"\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    fn load_catalog(root: PathBuf, paths: &AppPaths, tag: &str) -> Catalog {
+        Catalog::load(
+            crate::CatalogSource {
+                path: root,
+                version: "test".into(),
+                upstream_tag: tag.into(),
+            },
+            paths.winetricks_cache.clone(),
+        )
+        .unwrap()
+    }
+
+    fn plan_for(catalog: &Catalog, recipe: &str, prefix: WinePrefix) -> OperationPlan {
+        crate::Planner::new(catalog.clone())
+            .plan(
+                crate::OperationRequest {
+                    prefix_id: prefix.id,
+                    recipes: vec![recipe.into()],
+                    input_values: Default::default(),
+                    options: Default::default(),
+                },
+                prefix,
+            )
+            .unwrap()
+    }
+
+    fn recording_sink() -> (Arc<dyn OperationEventSink>, Arc<Mutex<Vec<OperationEvent>>>) {
+        let events = Arc::new(Mutex::new(Vec::<OperationEvent>::new()));
+        let captured = events.clone();
+        (
+            Arc::new(move |event: OperationEvent| captured.lock().push(event)),
+            events,
+        )
+    }
+
+    /// A `gio`-compatible `trash` that moves into `<root>/trash`.
+    fn fake_trash(root: &Path) -> PathBuf {
+        let trash = root.join("trash");
+        std::fs::create_dir_all(&trash).unwrap();
+        let program = root.join("fake-gio");
+        std::fs::write(
+            &program,
+            format!(
+                "#!/bin/sh\n[ \"$1\" = trash ] && mv \"$2\" '{}/'\n",
+                trash.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+        program
+    }
+
+    fn fake_wine(root: &Path) -> (PathBuf, PathBuf) {
+        let bin = root.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let log = root.join("wineserver.log");
+        std::fs::write(
+            bin.join("wineserver"),
+            format!("#!/bin/sh\necho \"$*\" >> '{}'\n", log.display()),
+        )
+        .unwrap();
+        std::fs::set_permissions(
+            bin.join("wineserver"),
+            std::fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
+        (bin.join("wine"), log)
+    }
+
+    #[tokio::test]
+    async fn cancel_stops_winetricks_descendants_and_wineserver_before_releasing_the_lock() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let catalog_root = temp.path().join("catalog");
+        std::fs::create_dir(&catalog_root).unwrap();
+        write_recipe(
+            &catalog_root,
+            "hosted",
+            "maturity = \"metadata_only\"",
+            "20260125",
+        );
+        let catalog = load_catalog(catalog_root, &paths, "20260125");
+        let prefix_path = temp.path().join("prefix");
+        std::fs::create_dir_all(prefix_path.join("drive_c")).unwrap();
+        let (wine, wineserver_log) = fake_wine(temp.path());
+        let prefix = test_prefix(prefix_path.clone(), Some(wine));
+        let plan = plan_for(&catalog, "hosted", prefix.clone());
+        let binary = temp.path().join("winetricks");
+        // An installer that outlives its Winetricks parent, like msiexec does.
+        std::fs::write(
+            &binary,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 20260125; exit 0; fi\nsleep 60 &\necho $! > \"$WINEPREFIX/installer.pid\"\nwait\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let store = Arc::new(Store::open(&paths).unwrap());
+        let mut engine = OperationEngine::new(catalog, paths.clone(), store.clone());
+        engine.legacy_host = LegacyVerbHost::with_binary(binary);
+        let (sink, events) = recording_sink();
+        let operation_id = plan.id;
+        let runner = engine.clone();
+        let task = tokio::spawn(async move { runner.run(plan, sink).await });
+        let pid_file = prefix_path.join("installer.pid");
+        for _ in 0..500 {
+            if pid_file.exists() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        assert!(pid_file.exists(), "child never started");
+        let installer: libc::pid_t = std::fs::read_to_string(&pid_file)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+
+        engine.cancel(operation_id).unwrap();
+        let result = task.await.unwrap();
+
+        assert!(matches!(result, Err(BettertricksError::Cancelled)));
+        assert!(
+            crate::process::process_gone(installer).await,
+            "installer {installer} kept running after cancel"
+        );
+        assert!(
+            std::fs::read_to_string(&wineserver_log)
+                .unwrap()
+                .contains("-k")
+        );
+        assert!(wait_until_free(&engine.locks, prefix.id).await);
+        let events = events.lock();
+        assert!(
+            events
+                .iter()
+                .any(|event| event.state == OperationState::Cancelling)
+        );
+        assert_eq!(events.last().unwrap().state, OperationState::Cancelled);
+        let record = store.operations(1).unwrap().remove(0);
+        assert_eq!(record.state, OperationState::Cancelled);
+    }
+
+    #[tokio::test]
+    async fn one_mutating_task_per_prefix_across_engines_and_prompts_survive_reattach() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let catalog_root = temp.path().join("catalog");
+        std::fs::create_dir(&catalog_root).unwrap();
+        write_recipe(
+            &catalog_root,
+            "ask",
+            "maturity = \"native\"\n[[steps]]\ntype = \"prompt\"\nlevel = \"confirmation\"\ntitle = \"Continue?\"\nmessage = \"Answer me\"",
+            "test",
+        );
+        let catalog = load_catalog(catalog_root, &paths, "test");
+        let prefix_path = temp.path().join("prefix");
+        std::fs::create_dir_all(prefix_path.join("drive_c")).unwrap();
+        let prefix = test_prefix(prefix_path, None);
+        let plan = plan_for(&catalog, "ask", prefix.clone());
+        let operation_id = plan.id;
+        // Desktop and CLI: separate engines (separate processes) sharing one state directory.
+        let desktop = OperationEngine::new(
+            catalog.clone(),
+            paths.clone(),
+            Arc::new(Store::open(&paths).unwrap()),
+        );
+        let mut cli = OperationEngine::new(
+            catalog.clone(),
+            paths.clone(),
+            Arc::new(Store::open(&paths).unwrap()),
+        );
+        cli.trash_program = fake_trash(temp.path());
+        let (sink, events) = recording_sink();
+        desktop.start(plan, sink).await.unwrap();
+        let prompt = loop {
+            if let Some(prompt) = desktop
+                .live_operations()
+                .into_iter()
+                .find_map(|operation| operation.prompt)
+            {
+                break prompt;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+        assert_eq!(
+            desktop.live_operations()[0].state,
+            OperationState::WaitingForUser
+        );
+
+        let second = plan_for(&catalog, "ask", prefix.clone());
+        let (cli_sink, _) = recording_sink();
+        assert!(matches!(
+            cli.run(second, cli_sink).await,
+            Err(BettertricksError::Busy(_))
+        ));
+        assert!(matches!(
+            cli.create_restore_point(&prefix).await,
+            Err(BettertricksError::Busy(_))
+        ));
+        assert!(matches!(
+            cli.trash_prefix(&prefix).await,
+            Err(BettertricksError::Busy(_))
+        ));
+        // The crashed-run reconciliation must not touch an operation another engine owns.
+        assert_eq!(cli.reconcile_interrupted().unwrap(), 0);
+
+        desktop
+            .respond(PromptResponse {
+                operation_id,
+                prompt_id: prompt.id,
+                choice_id: "continue".into(),
+            })
+            .unwrap();
+        while !events
+            .lock()
+            .last()
+            .is_some_and(|event| event.state.is_terminal())
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            events.lock().last().unwrap().state,
+            OperationState::Succeeded
+        );
+        assert!(wait_until_free(&desktop.locks, prefix.id).await);
+        assert!(desktop.live_operations().is_empty());
+    }
+
+    #[tokio::test]
+    async fn startup_reconciliation_interrupts_orphans_and_frees_their_restore_points() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let catalog_root = temp.path().join("catalog");
+        std::fs::create_dir(&catalog_root).unwrap();
+        write_recipe(
+            &catalog_root,
+            "noop",
+            "maturity = \"native\"\n[[steps]]\ntype = \"native_action\"\naction = \"noop\"",
+            "test",
+        );
+        let catalog = load_catalog(catalog_root, &paths, "test");
+        let store = Arc::new(Store::open(&paths).unwrap());
+        let orphan = |prefix_id| OperationRecord {
+            id: Uuid::new_v4(),
+            prefix_id,
+            prefix_name: "Game".into(),
+            recipes: vec!["noop".into()],
+            state: OperationState::Running,
+            created_at: Utc::now(),
+            started_at: Some(Utc::now()),
+            finished_at: None,
+            current_step: 1,
+            total_steps: 2,
+            message: None,
+            failures: Vec::new(),
+        };
+        let crashed = orphan(Uuid::new_v4());
+        let elsewhere = orphan(Uuid::new_v4());
+        store.upsert_operation(&crashed).unwrap();
+        store.upsert_operation(&elsewhere).unwrap();
+        let snapshot = paths.backups.join("snapshot.tar.zst");
+        std::fs::write(&snapshot, b"snapshot").unwrap();
+        let point = RestorePoint {
+            id: Uuid::new_v4(),
+            prefix_id: crashed.prefix_id,
+            prefix_name: "Game".into(),
+            prefix_path: temp.path().join("game"),
+            storage_path: snapshot,
+            method: crate::RestoreMethod::Archive,
+            created_at: Utc::now(),
+            size_bytes: None,
+            operation_id: Some(crashed.id),
+            prefix_source: None,
+            runtime: None,
+        };
+        store.add_restore_point(&point).unwrap();
+        assert!(store.restore_point_is_protected(&point).unwrap());
+        // The crashed process had taken (and lost, by dying) its lock; the lock file remains.
+        drop(
+            PrefixLocks::new(&paths)
+                .acquire(crashed.prefix_id, "crashed")
+                .unwrap(),
+        );
+        // A row whose lock file is missing cannot be judged and is left alone.
+        let unknown = orphan(Uuid::new_v4());
+        store.upsert_operation(&unknown).unwrap();
+        // Another live process still owns the second operation's prefix.
+        let other_process = PrefixLocks::new(&paths);
+        let _held = other_process.acquire(elsewhere.prefix_id, "cli").unwrap();
+
+        let engine = OperationEngine::new(catalog, paths, store.clone());
+        assert!(wait_until_free(&engine.locks, crashed.prefix_id).await);
+        assert_eq!(engine.reconcile_interrupted().unwrap(), 1);
+
+        let records = store.operations(10).unwrap();
+        let state = |id| records.iter().find(|record| record.id == id).unwrap().state;
+        assert_eq!(state(crashed.id), OperationState::Interrupted);
+        assert_eq!(state(elsewhere.id), OperationState::Running);
+        assert_eq!(state(unknown.id), OperationState::Running);
+        assert!(!store.restore_point_is_protected(&point).unwrap());
+        engine.recovery.delete(point.id).await.unwrap();
+        assert_eq!(store.clear_operation_history().unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_running_row_with_an_unprobeable_lock_blocks_new_work() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let catalog_root = temp.path().join("catalog");
+        std::fs::create_dir(&catalog_root).unwrap();
+        write_recipe(
+            &catalog_root,
+            "noop",
+            "maturity = \"native\"\n[[steps]]\ntype = \"native_action\"\naction = \"noop\"",
+            "test",
+        );
+        let catalog = load_catalog(catalog_root, &paths, "test");
+        let store = Arc::new(Store::open(&paths).unwrap());
+        let prefix_path = temp.path().join("prefix");
+        std::fs::create_dir_all(prefix_path.join("drive_c")).unwrap();
+        let prefix = test_prefix(prefix_path, None);
+        // Another process's operation, whose lock file was deleted by a cleanup tool.
+        store
+            .upsert_operation(&OperationRecord {
+                id: Uuid::new_v4(),
+                prefix_id: prefix.id,
+                prefix_name: "Test".into(),
+                recipes: Vec::new(),
+                state: OperationState::Running,
+                created_at: Utc::now(),
+                started_at: None,
+                finished_at: None,
+                current_step: 0,
+                total_steps: 0,
+                message: None,
+                failures: Vec::new(),
+            })
+            .unwrap();
+        let engine = OperationEngine::new(catalog, paths, store.clone());
+
+        assert_eq!(engine.reconcile_interrupted().unwrap(), 0);
+        assert!(matches!(
+            engine.create_restore_point(&prefix).await,
+            Err(BettertricksError::Busy(_))
+        ));
+    }
+
+    struct FakeFetcher(HashMap<String, Vec<u8>>);
+
+    #[async_trait]
+    impl Fetcher for FakeFetcher {
+        async fn fetch(
+            &self,
+            url: &str,
+            destination: &Path,
+            context: &mut ExecutionContext,
+        ) -> Result<()> {
+            let bytes = self
+                .0
+                .get(url)
+                .ok_or_else(|| BettertricksError::Io(std::io::Error::other("404")))?;
+            tokio::fs::write(destination, bytes).await?;
+            context.download_progress(bytes.len() as u64, Some(bytes.len() as u64));
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn quarantines_bad_cache_and_falls_through_mismatching_mirrors() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let catalog_root = temp.path().join("catalog");
+        std::fs::create_dir(&catalog_root).unwrap();
+        let good = b"bettertricks".to_vec();
+        write_recipe(
+            &catalog_root,
+            "fetch",
+            "maturity = \"native\"\n[[files]]\nid = \"payload\"\nfilename = \"payload.bin\"\nurls = [\"https://bad.example/payload.bin\", \"https://good.example/payload.bin\"]\nsha256 = \"93413c6ce1e4603c4adaa057e4ad0ce316e72589ba485ecc573e4a1331706139\"\n[[steps]]\ntype = \"download\"\nfile = \"payload\"",
+            "test",
+        );
+        let catalog = load_catalog(catalog_root, &paths, "test");
+        let cached = paths.winetricks_cache.join("fetch/payload.bin");
+        std::fs::create_dir_all(cached.parent().unwrap()).unwrap();
+        // Truncated leftover from an interrupted Winetricks download.
+        std::fs::write(&cached, b"better").unwrap();
+        let prefix_path = temp.path().join("prefix");
+        std::fs::create_dir_all(prefix_path.join("drive_c")).unwrap();
+        let plan = plan_for(&catalog, "fetch", test_prefix(prefix_path, None));
+        assert_eq!(plan.downloads[0].cache_state, crate::CacheState::Present);
+        let mut engine = OperationEngine::new(
+            catalog,
+            paths.clone(),
+            Arc::new(Store::open_in_memory().unwrap()),
+        );
+        engine.fetcher = Arc::new(FakeFetcher(HashMap::from([
+            (
+                "https://bad.example/payload.bin".to_owned(),
+                b"tampered mirror".to_vec(),
+            ),
+            ("https://good.example/payload.bin".to_owned(), good.clone()),
+        ])));
+        let (sink, _) = recording_sink();
+
+        engine.run(plan, sink).await.unwrap();
+
+        assert_eq!(std::fs::read(&cached).unwrap(), good);
+        let names = std::fs::read_dir(cached.parent().unwrap())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+        assert!(
+            names
+                .iter()
+                .any(|name| name.contains("bettertricks-invalid")),
+            "{names:?}"
+        );
+        assert!(
+            !names.iter().any(|name| name.ends_with(".part")),
+            "{names:?}"
+        );
+    }
+
+    #[test]
+    fn download_progress_is_throttled_per_operation() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let prefix = test_prefix(temp.path().join("prefix"), None);
+        let plan = OperationPlan {
+            id: Uuid::new_v4(),
+            prefix,
+            requested_recipes: Vec::new(),
+            resolved_recipes: Vec::new(),
+            steps: Vec::new(),
+            inputs: Vec::new(),
+            downloads: Vec::new(),
+            conflicts: Vec::new(),
+            warnings: Vec::new(),
+            restore_recommended: false,
+            estimated_download_bytes: None,
+            options: Default::default(),
+        };
+        let (sink, events) = recording_sink();
+        let mut context = ExecutionContext::new(
+            plan,
+            Arc::new(AtomicBool::new(false)),
+            sink,
+            paths,
+            Arc::new(Store::open_in_memory().unwrap()),
+        );
+        let total = 600 * 1024 * 1024;
+        for chunk in 1..=40_000u64 {
+            context.download_progress((chunk * total / 40_000).min(total), Some(total));
+        }
+        // First chunk and the completed download; a 40 000-chunk loop finishes well under 250 ms.
+        let emitted = events.lock().len();
+        assert!((2..=4).contains(&emitted), "{emitted} progress events");
+    }
+
+    #[test]
+    fn operation_lifecycle_transition_table() {
+        use OperationState::*;
+        let all = [
+            Planned,
+            Preflight,
+            Running,
+            WaitingForUser,
+            Cancelling,
+            Succeeded,
+            Failed,
+            Cancelled,
+            Interrupted,
+        ];
+        for terminal in [Succeeded, Failed, Cancelled, Interrupted] {
+            assert!(terminal.is_terminal());
+            assert!(all.iter().all(|next| !terminal.can_transition_to(*next)));
+        }
+        assert!(Planned.can_transition_to(Preflight));
+        assert!(!Planned.can_transition_to(Running));
+        assert!(Preflight.can_transition_to(Running));
+        assert!(Running.can_transition_to(WaitingForUser));
+        assert!(WaitingForUser.can_transition_to(Running));
+        assert!(!WaitingForUser.can_transition_to(Succeeded));
+        assert!(Running.can_transition_to(Cancelling));
+        assert!(Cancelling.can_transition_to(Cancelled));
+        assert!(!Cancelling.can_transition_to(Running));
+        assert!(!Preflight.can_transition_to(Succeeded));
+        for live in [Planned, Preflight, Running, WaitingForUser, Cancelling] {
+            assert!(live.can_transition_to(Interrupted));
+            assert!(live.can_transition_to(Failed));
+        }
+    }
+
+    #[tokio::test]
+    async fn restoring_a_trashed_manual_prefix_registers_it_again() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::isolated(temp.path()).unwrap();
+        let catalog_root = temp.path().join("catalog");
+        std::fs::create_dir(&catalog_root).unwrap();
+        write_recipe(
+            &catalog_root,
+            "noop",
+            "maturity = \"native\"\n[[steps]]\ntype = \"native_action\"\naction = \"noop\"",
+            "test",
+        );
+        let catalog = load_catalog(catalog_root, &paths, "test");
+        let store = Arc::new(Store::open(&paths).unwrap());
+        let mut engine = OperationEngine::new(catalog, paths, store.clone());
+        engine.trash_program = fake_trash(temp.path());
+        let prefix_path = temp.path().join("games/manual");
+        std::fs::create_dir_all(prefix_path.join("drive_c")).unwrap();
+        std::fs::write(prefix_path.join("system.reg"), "REGEDIT4\n").unwrap();
+        let (wine, _) = fake_wine(temp.path());
+        let mut prefix = test_prefix(prefix_path.clone(), Some(wine));
+        prefix.name = "Manual".into();
+        store
+            .register_prefix(
+                &prefix_path,
+                "Manual",
+                PrefixSource::Manual,
+                prefix.runtime.as_deref(),
+            )
+            .unwrap();
+        let point = engine.create_restore_point(&prefix).await.unwrap();
+        engine.trash_prefix(&prefix).await.unwrap();
+        assert!(!prefix_path.exists());
+        assert!(temp.path().join("trash/manual/system.reg").is_file());
+        assert!(store.registered_prefixes().unwrap().is_empty());
+
+        engine.restore(&point, false).await.unwrap();
+
+        assert!(prefix_path.join("system.reg").is_file());
+        let registered = store.registered_prefixes().unwrap();
+        assert_eq!(registered.len(), 1);
+        assert_eq!(registered[0].0, prefix_path);
+        assert_eq!(registered[0].3, prefix.runtime);
     }
 
     #[test]
@@ -3086,6 +4213,7 @@ upstream_verb = "hosted"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         let invocations = registry_invocations(&prefix, RegistryArchitecture::Prefix);
         assert_eq!(invocations.len(), 2);
@@ -3109,6 +4237,7 @@ upstream_verb = "hosted"
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: Default::default(),
         };
         assert_eq!(
             system_directory_for_32_bit(&prefix).unwrap(),

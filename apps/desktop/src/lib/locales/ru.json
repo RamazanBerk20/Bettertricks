@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "Введите {prefix} для подтверждения.",
   "Unattended mode": "Автоматический режим",
   "Uninstaller": "Деинсталлятор",
-  "unknown": "неизвестно",
   "Unknown": "Неизвестно",
   "Unknown architecture": "Неизвестная архитектура",
   "Update font rendering registry keys": "Обновить ключи реестра рендеринга шрифтов",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Winetricks-совместимые записи: {count}",
   "Work in progress": "Работа в процессе",
   "Working…": "Работаю…",
-  "Your Wine prefixes were not changed.": "Ваши префиксы Wine не были изменены."
+  "Your Wine prefixes were not changed.": "Ваши префиксы Wine не были изменены.",
+  "Permanently delete this snapshot? This cannot be undone.": "Удалить этот снимок навсегда? Это действие нельзя отменить.",
+  "Snapshot deleted": "Снимок удалён",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "Восстановить этот снимок? Текущий префикс сначала будет перемещён в корзину.",
+  "Interrupted": "Прервано",
+  "Answer prompt": "Ответить",
+  "Restore snapshot": "Восстановить снимок",
+  "Delete snapshot": "Удалить снимок",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "Bettertricks завершился до окончания этой операции. Восстановите снимок, созданный перед ней, или удалите его.",
+  "Another Bettertricks task is changing this prefix.": "Другая задача Bettertricks изменяет этот префикс.",
+  "Busy": "Занят",
+  "Keep restore points per prefix": "Точек восстановления на префикс",
+  "Older restore points are deleted automatically after a new one is created.": "Старые точки восстановления удаляются автоматически после создания новой.",
+  "Unlimited": "Без ограничений",
+  "Restore points use {size}.": "Точки восстановления занимают {size}."
 }

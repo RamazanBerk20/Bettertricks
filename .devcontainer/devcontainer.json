@@ -15,6 +15,7 @@
     }
   },
   "forwardPorts": [1420],
+  "containerEnv": { "BETTERTRICKS_DEV_HOST": "0.0.0.0" },
   "mounts": [
     "source=bettertricks-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
     "source=bettertricks-cargo-target,target=${containerWorkspaceFolder}/target,type=volume"

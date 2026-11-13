@@ -34,7 +34,3 @@ export function shortPath(path: string, length = 54): string {
   const parts = path.split("/");
   return `…/${parts.slice(-3).join("/")}`;
 }
-
-export function hasVersionToken(version: string | null | undefined, expected: string): boolean {
-  return version?.split(/\s+/).includes(expected) ?? false;
-}

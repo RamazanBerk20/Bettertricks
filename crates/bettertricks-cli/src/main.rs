@@ -3,10 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bettertricks_core::{
-    AppPaths, Catalog, CatalogQuery, CatalogSource, CatalogUpdater, LegacyVerbHost,
-    OperationEngine, OperationEvent, OperationEventSink, OperationOptions, OperationRequest,
-    Planner, PrefixArchitecture, PrefixDiscovery, RecoveryManager, Store, VerbCategory,
-    install_managed_compatibility_host, rollback_catalog,
+    AppPaths, Catalog, CatalogQuery, CatalogUpdater, OperationEngine, OperationEvent,
+    OperationEventSink, OperationOptions, OperationRequest, PrefixArchitecture, PromptResponse,
+    Session, Store, VerbCategory, install_managed_compatibility_host, prefix_id_for_path,
+    rollback_catalog, validate_new_prefix_path,
 };
 use clap::{ArgAction, Parser};
 
@@ -117,53 +117,17 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let paths = AppPaths::discover()?;
-    let store = Arc::new(Store::open(&paths)?);
-    let bundled_catalog_root = locate_catalog()?;
-    let active_catalog = store.active_catalog_version()?;
-    let selected_catalog_root = active_catalog
-        .as_ref()
-        .map(|record| record.path.clone())
-        .unwrap_or_else(|| bundled_catalog_root.clone());
-    let (selected_version, selected_upstream) = catalog_identity(&selected_catalog_root);
-    let loaded = Catalog::load(
-        CatalogSource {
-            path: selected_catalog_root.clone(),
-            version: selected_version,
-            upstream_tag: selected_upstream,
-        },
-        paths.winetricks_cache.clone(),
-    );
-    let (catalog, catalog_root, signature) = match loaded {
-        Ok(catalog) => (
-            catalog,
-            selected_catalog_root,
-            active_catalog.and_then(|record| record.signature),
-        ),
-        Err(error) if selected_catalog_root != bundled_catalog_root => {
-            eprintln!("Ignoring invalid active catalog: {error}");
-            let (version, upstream_tag) = catalog_identity(&bundled_catalog_root);
-            (
-                Catalog::load(
-                    CatalogSource {
-                        path: bundled_catalog_root.clone(),
-                        version,
-                        upstream_tag,
-                    },
-                    paths.winetricks_cache.clone(),
-                )?,
-                bundled_catalog_root,
-                None,
-            )
-        }
-        Err(error) => return Err(error.into()),
-    };
+    let session = Session::open(paths, &locate_catalog()?)?;
+    let Session {
+        paths,
+        store,
+        catalog,
+        discovery,
+        planner,
+        engine,
+        ..
+    } = session;
     let summary = catalog.summary();
-    store.activate_catalog_version(
-        &summary.version,
-        &summary.upstream_tag,
-        &catalog_root,
-        signature.as_deref(),
-    )?;
 
     if cli.self_update {
         update_signed_catalog(&paths, &store, &catalog).await?;
@@ -173,7 +137,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         println!("Rolled back to catalog {}.", rolled_back.version);
     }
     if cli.install_compatibility_host {
-        let path = install_managed_compatibility_host(&paths, &summary.upstream_tag).await?;
+        let path = install_managed_compatibility_host(&paths, &catalog).await?;
         println!(
             "Installed checksum-verified Winetricks {} host at {}.",
             summary.upstream_tag,
@@ -203,7 +167,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     if cli.commands.is_empty() && !imported_manual_files.is_empty() {
         return Ok(());
     }
-    let discovery = PrefixDiscovery::new(store.clone());
+    if cli.commands.first().is_some_and(|command| command == "ops") && !catalog.contains("ops") {
+        return operations_command(&cli, &store, &engine);
+    }
     let mut prefixes = discovery.discover().await?;
 
     if cli.commands.is_empty() {
@@ -231,7 +197,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let mut prefix = select_prefix(&paths, &mut prefixes, prefix_selector.as_deref())?;
-    if let Some(architecture) = architecture {
+    // arch= only chooses the architecture of a prefix that is about to be created.
+    if let Some(architecture) = architecture
+        && !prefix.exists
+    {
         prefix.architecture = architecture;
     }
 
@@ -270,7 +239,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .cloned()
         .collect::<Vec<_>>();
     if !legacy_verbs.is_empty() {
-        let host = LegacyVerbHost::discover_with_paths(&paths);
+        let host = bettertricks_core::LegacyVerbHost::for_catalog(&paths, &catalog);
         let inspected = legacy_verbs
             .iter()
             .map(|path| host.inspect(Path::new(path)))
@@ -286,12 +255,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         if prefix.exists {
             eprintln!("Creating a restore point before running legacy shell code...");
-            RecoveryManager::new(paths.clone(), store.clone())
-                .create(&prefix, None)
-                .await?;
         }
         for info in &inspected {
-            host.run(&info.path, &prefix, &options, true).await?;
+            engine.run_legacy_verb(info, &prefix, &options).await?;
         }
         commands.retain(|command| !legacy_verbs.contains(command));
         if commands.is_empty() {
@@ -309,7 +275,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         input_values: parse_input_values(&cli.inputs)?,
         options,
     };
-    let plan = Planner::with_paths(catalog.clone(), &paths).plan(request, prefix)?;
+    let plan = planner.plan(request, prefix)?;
     if cli.json || cli.dry_run {
         println!("{}", serde_json::to_string_pretty(&plan)?);
         if cli.dry_run {
@@ -320,9 +286,67 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("the operation has conflicts; inspect --dry-run output or use --force".into());
     }
 
-    let engine = OperationEngine::new(catalog, paths, store);
-    let sink: Arc<dyn OperationEventSink> = Arc::new(ConsoleSink { json: cli.json });
+    let sink: Arc<dyn OperationEventSink> = Arc::new(ConsoleSink {
+        json: cli.json,
+        engine: engine.clone(),
+    });
+    let operation_id = plan.id;
+    let interrupt = engine.clone();
+    tokio::spawn(async move {
+        // Ctrl-C cancels like the desktop's Cancel button: the process group is stopped and
+        // the prefix's wineserver is killed before the lock is released.
+        if tokio::signal::ctrl_c().await.is_ok() {
+            let _ = interrupt.cancel(operation_id);
+            eprintln!("Cancelling; press Ctrl-C again to force quit.");
+        }
+        // A second Ctrl-C force-quits even if cancellation is stuck in a non-cancellable
+        // wait: kill every process group this CLI started, then exit like SIGINT would.
+        if tokio::signal::ctrl_c().await.is_ok() {
+            bettertricks_core::stop_all_groups();
+            std::process::exit(130);
+        }
+    });
     engine.run(plan, sink).await?;
+    Ok(())
+}
+
+/// `bettertricks ops list|clear [--json]`: the operation journal with lifecycle states, the
+/// same records the desktop Activity view shows.
+fn operations_command(
+    cli: &Cli,
+    store: &Store,
+    engine: &OperationEngine,
+) -> Result<(), Box<dyn std::error::Error>> {
+    engine.reconcile_interrupted()?;
+    match cli.commands.get(1).map(String::as_str).unwrap_or("list") {
+        "list" => {
+            let operations = store.operations(200)?;
+            if cli.json {
+                println!("{}", serde_json::to_string_pretty(&operations)?);
+            } else {
+                for operation in operations {
+                    println!(
+                        "{}  {:<16} {:<24} {}",
+                        operation.id,
+                        serde_json::to_value(operation.state)?
+                            .as_str()
+                            .unwrap_or_default(),
+                        operation.prefix_name,
+                        operation.recipes.join(" ")
+                    );
+                }
+            }
+        }
+        "clear" => {
+            let cleared = store.clear_operation_history()?;
+            if cli.json {
+                println!("{}", serde_json::json!({ "cleared": cleared }));
+            } else {
+                println!("Cleared {cleared} finished operation(s).");
+            }
+        }
+        other => return Err(format!("unknown ops command {other:?}; use list or clear").into()),
+    }
     Ok(())
 }
 
@@ -447,21 +471,24 @@ fn select_prefix(
     selector: Option<&str>,
 ) -> Result<bettertricks_core::WinePrefix, Box<dyn std::error::Error>> {
     if let Some(selector) = selector {
+        if selector.is_empty() || selector.contains('/') || selector == "." || selector == ".." {
+            return Err(format!(
+                "prefix={selector:?} must be a prefix name under wineprefixes, not a path"
+            )
+            .into());
+        }
         let xdg_data = std::env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
             .or_else(|| {
                 std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share"))
             })
             .unwrap_or_else(|| paths.data.clone());
-        let path = xdg_data.join("wineprefixes").join(selector);
+        let path = validate_new_prefix_path(&xdg_data.join("wineprefixes").join(selector))?;
         if let Some(prefix) = prefixes.iter().find(|prefix| prefix.path == path) {
             return Ok(prefix.clone());
         }
         return Ok(bettertricks_core::WinePrefix {
-            id: uuid::Uuid::new_v5(
-                &uuid::Uuid::NAMESPACE_URL,
-                path.to_string_lossy().as_bytes(),
-            ),
+            id: prefix_id_for_path(&path),
             name: selector.into(),
             path,
             source: bettertricks_core::PrefixSource::WinePrefixes,
@@ -473,6 +500,7 @@ fn select_prefix(
             installed_verbs: Vec::new(),
             size_bytes: None,
             last_modified: None,
+            status: bettertricks_core::PrefixStatus::Missing,
         });
     }
     prefixes
@@ -505,25 +533,6 @@ fn locate_catalog() -> Result<PathBuf, Box<dyn std::error::Error>> {
         .flatten()
         .find(|path| path.is_dir())
         .ok_or_else(|| "Bettertricks catalog not found; set BETTERTRICKS_CATALOG".into())
-}
-
-fn catalog_identity(path: &Path) -> (String, String) {
-    let manifest = std::fs::read_to_string(path.join("manifest.json"))
-        .ok()
-        .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok());
-    let version = manifest
-        .as_ref()
-        .and_then(|value| value.get("version"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("bundled")
-        .to_owned();
-    let upstream_tag = manifest
-        .as_ref()
-        .and_then(|value| value.get("upstreamTag"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("unknown")
-        .to_owned();
-    (version, upstream_tag)
 }
 
 async fn update_signed_catalog(
@@ -567,11 +576,21 @@ fn launch_desktop() -> Result<(), Box<dyn std::error::Error>> {
 
 struct ConsoleSink {
     json: bool,
+    engine: OperationEngine,
 }
 
 impl OperationEventSink for ConsoleSink {
     fn emit(&self, event: OperationEvent) {
+        if let Some(prompt) = &event.prompt {
+            answer_prompt(
+                self.engine.clone(),
+                event.operation_id,
+                prompt.clone(),
+                self.json,
+            );
+        }
         if self.json {
+            // Every event carries the operation `state`, so agents can follow the lifecycle.
             if let Ok(value) = serde_json::to_string(&event) {
                 println!("{value}");
             }
@@ -583,9 +602,75 @@ impl OperationEventSink for ConsoleSink {
     }
 }
 
+/// Reads one answer from stdin: a choice id (`continue`, `cancel`) or, for agents, a JSON
+/// object `{"choice_id": "continue"}`. End of input cancels.
+fn answer_prompt(
+    engine: OperationEngine,
+    operation_id: uuid::Uuid,
+    prompt: bettertricks_core::OperationPrompt,
+    json: bool,
+) {
+    if !json {
+        eprintln!("{}: {}", prompt.title, prompt.message);
+        let choices = prompt
+            .choices
+            .iter()
+            .map(|choice| choice.id.as_str())
+            .collect::<Vec<_>>();
+        eprintln!("Answer with one of: {}", choices.join(", "));
+    }
+    std::thread::spawn(move || {
+        let mut line = String::new();
+        let choice = match std::io::stdin().read_line(&mut line) {
+            Ok(0) | Err(_) => "cancel".to_owned(),
+            Ok(_) => parse_prompt_answer(&line),
+        };
+        let _ = engine.respond(PromptResponse {
+            operation_id,
+            prompt_id: prompt.id,
+            choice_id: choice,
+        });
+    });
+}
+
+fn parse_prompt_answer(line: &str) -> String {
+    let line = line.trim();
+    serde_json::from_str::<serde_json::Value>(line)
+        .ok()
+        .and_then(|value| value.get("choice_id")?.as_str().map(str::to_owned))
+        .unwrap_or_else(|| line.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn prefix_selectors_cannot_escape_the_wineprefixes_directory() {
+        let temp = tempfile_dir();
+        let paths = AppPaths::isolated(&temp).unwrap();
+        for selector in ["..", ".", "/home/user", "../outside", ""] {
+            assert!(
+                select_prefix(&paths, &mut [], Some(selector)).is_err(),
+                "{selector}"
+            );
+        }
+        let prefix = select_prefix(&paths, &mut [], Some("game")).unwrap();
+        assert!(prefix.path.ends_with("wineprefixes/game"));
+        assert_eq!(prefix.id, prefix_id_for_path(&prefix.path));
+        assert_eq!(
+            parse_prompt_answer("{\"choice_id\":\"continue\"}\n"),
+            "continue"
+        );
+        assert_eq!(parse_prompt_answer(" cancel\n"), "cancel");
+        let _ = std::fs::remove_dir_all(temp);
+    }
+
+    fn tempfile_dir() -> PathBuf {
+        let path = std::env::temp_dir().join(format!("bettertricks-cli-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
 
     #[test]
     fn parses_manual_file_specifications_without_truncating_paths() {

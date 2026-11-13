@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "Geben Sie zur Bestätigung {prefix} ein",
   "Unattended mode": "Unbeaufsichtigter Modus",
   "Uninstaller": "Deinstallationsprogramm",
-  "unknown": "unbekannt",
   "Unknown": "Unbekannt",
   "Unknown architecture": "Unbekannte Architektur",
   "Update font rendering registry keys": "Aktualisieren Sie die Registrierungsschlüssel für die Schriftartwiedergabe",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Winetricks-kompatible Einträge: {count}",
   "Work in progress": "In Arbeit",
   "Working…": "Arbeiten…",
-  "Your Wine prefixes were not changed.": "Ihre Wine-Präfixe wurden nicht geändert."
+  "Your Wine prefixes were not changed.": "Ihre Wine-Präfixe wurden nicht geändert.",
+  "Permanently delete this snapshot? This cannot be undone.": "Diesen Snapshot endgültig löschen? Dies kann nicht rückgängig gemacht werden.",
+  "Snapshot deleted": "Snapshot gelöscht",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "Diesen Snapshot wiederherstellen? Das aktuelle Präfix wird zuerst in den Papierkorb verschoben.",
+  "Interrupted": "Unterbrochen",
+  "Answer prompt": "Rückfrage beantworten",
+  "Restore snapshot": "Snapshot wiederherstellen",
+  "Delete snapshot": "Snapshot löschen",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "Bettertricks wurde beendet, bevor dieser Vorgang abgeschlossen war. Stellen Sie den vorher erstellten Snapshot wieder her oder löschen Sie ihn.",
+  "Another Bettertricks task is changing this prefix.": "Eine andere Bettertricks-Aufgabe ändert gerade dieses Präfix.",
+  "Busy": "Belegt",
+  "Keep restore points per prefix": "Wiederherstellungspunkte pro Präfix",
+  "Older restore points are deleted automatically after a new one is created.": "Ältere Wiederherstellungspunkte werden automatisch gelöscht, nachdem ein neuer erstellt wurde.",
+  "Unlimited": "Unbegrenzt",
+  "Restore points use {size}.": "Wiederherstellungspunkte belegen {size}."
 }

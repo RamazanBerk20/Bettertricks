@@ -374,7 +374,6 @@
   "Type {prefix} to confirm": "Tapez {prefix} pour confirmer",
   "Unattended mode": "Mode sans surveillance",
   "Uninstaller": "Désinstallateur",
-  "unknown": "inconnu",
   "Unknown": "Inconnu",
   "Unknown architecture": "Architecture inconnue",
   "Update font rendering registry keys": "Mettre à jour les clés de registre du rendu des polices",
@@ -402,5 +401,19 @@
   "Winetricks-compatible entries: {count}": "Entrées compatibles Winetricks : {count}",
   "Work in progress": "Travaux en cours",
   "Working…": "Travailler…",
-  "Your Wine prefixes were not changed.": "Vos préfixes Wine n'ont pas été modifiés."
+  "Your Wine prefixes were not changed.": "Vos préfixes Wine n'ont pas été modifiés.",
+  "Permanently delete this snapshot? This cannot be undone.": "Supprimer définitivement cet instantané ? Cette action est irréversible.",
+  "Snapshot deleted": "Instantané supprimé",
+  "Restore this snapshot? The current prefix will be moved to Trash first.": "Restaurer cet instantané ? Le préfixe actuel sera d'abord déplacé vers la Corbeille.",
+  "Interrupted": "Interrompue",
+  "Answer prompt": "Répondre",
+  "Restore snapshot": "Restaurer l'instantané",
+  "Delete snapshot": "Supprimer l'instantané",
+  "Bettertricks exited before this operation finished. Restore the snapshot taken before it, or delete the snapshot.": "Bettertricks s'est fermé avant la fin de cette opération. Restaurez l'instantané pris avant, ou supprimez-le.",
+  "Another Bettertricks task is changing this prefix.": "Une autre tâche Bettertricks modifie ce préfixe.",
+  "Busy": "Occupé",
+  "Keep restore points per prefix": "Points de restauration par préfixe",
+  "Older restore points are deleted automatically after a new one is created.": "Les anciens points de restauration sont supprimés automatiquement après la création d'un nouveau.",
+  "Unlimited": "Illimité",
+  "Restore points use {size}.": "Les points de restauration occupent {size}."
 }

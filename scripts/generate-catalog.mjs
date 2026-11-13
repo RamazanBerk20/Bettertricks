@@ -5,6 +5,7 @@ import {
   maturityForTitle,
   normalizeWinetricksOutput,
   WINETRICKS_BASELINE,
+  WINETRICKS_HOST,
 } from "./catalog-metadata.mjs";
 
 const root = resolve(import.meta.dirname, "..");
@@ -136,6 +137,8 @@ const manifest = {
     name,
     (categoryCounts.get(name) ?? 0) + (nativeCategoryCounts.get(name) ?? 0),
   ])),
+  // The signed catalog carries the exact Winetricks host its tracked recipes run with.
+  compatibilityHost: WINETRICKS_HOST,
 };
 writeFileSync(join(root, "catalog", "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 

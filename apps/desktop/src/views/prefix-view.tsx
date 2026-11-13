@@ -80,6 +80,7 @@ export const PrefixView = memo(function PrefixView({
               <Badge tone={prefix.managed ? "warning" : "neutral"}>
                 {prefix.managed ? t("{source} managed", { source: sourceName(prefix, t) }) : sourceName(prefix, t)}
               </Badge>
+              {prefix.status === "busy" ? <Badge tone="warning"><span title={t("Another Bettertricks task is changing this prefix.")}>{t("Busy")}</span></Badge> : null}
               <span>{architectureName(prefix.architecture, t)}</span>
             </div>
             <h1 dir="auto">{prefix.name}</h1>

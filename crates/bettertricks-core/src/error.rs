@@ -20,6 +20,8 @@ pub enum BettertricksError {
     OperationNotFound(String),
     #[error("operation conflict: {0}")]
     Conflict(String),
+    #[error("prefix is busy: {0}")]
+    Busy(String),
     #[error("operation cancelled")]
     Cancelled,
     #[error("checksum mismatch for {file}: expected {expected}, got {actual}")]

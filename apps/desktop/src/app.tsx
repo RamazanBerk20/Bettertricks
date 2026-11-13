@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import {
   ArrowClockwise,
@@ -10,13 +10,13 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { api } from "./lib/api";
-import { hasVersionToken } from "./lib/format";
+import { applyOperationEvent, entryFromLive, isTerminal, LIVE_STATES, type OperationStore } from "./lib/operations";
 import { I18nProvider, useI18n } from "./lib/i18n";
 import { normalizeLanguagePreference, resolveLanguagePreference } from "./lib/translations";
 import type {
   AppSettings,
   BootstrapPayload,
-  OperationEvent,
+  LiveOperation,
   OperationPlan,
   UUID,
   WinePrefix,
@@ -56,7 +56,10 @@ function AppContent() {
   const [activeOperationId, setActiveOperationId] = useState<UUID | null>(null);
   const [activePlan, setActivePlan] = useState<OperationPlan | null>(null);
   const [operationDrawerOpen, setOperationDrawerOpen] = useState(false);
-  const [operationEvents, setOperationEvents] = useState<OperationEvent[]>([]);
+  const [operationStore, setOperationStore] = useState<OperationStore>(new Map());
+  const [livePlans, setLivePlans] = useState<Map<UUID, OperationPlan>>(new Map());
+  const activeOperationRef = useRef<UUID | null>(null);
+  activeOperationRef.current = activeOperationId;
   const [installingCompatibilityHost, setInstallingCompatibilityHost] = useState(false);
   const [toast, setToast] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
 
@@ -68,6 +71,7 @@ function AppContent() {
       setLocale(locale);
       setData(payload);
       setSelectedPrefixId((current) => current && payload.prefixes.some((prefix) => prefix.id === current) ? current : payload.prefixes[0]?.id ?? null);
+      attachLiveOperations(payload.live_operations ?? []);
       setFatalError(null);
     } catch (reason) {
       setFatalError(String(reason));
@@ -76,13 +80,36 @@ function AppContent() {
     }
   }, [setLocale]);
 
+  /** Re-attaches to operations the backend still runs; the prompt state lives in the backend. */
+  const attachLiveOperations = useCallback((live: LiveOperation[]) => {
+    if (!live.length) return;
+    setLivePlans((current) => new Map([...current, ...live.map((operation) => [operation.plan.id, operation.plan] as const)]));
+    setOperationStore((current) => {
+      const next = new Map(current);
+      for (const operation of live) if (!next.has(operation.plan.id)) next.set(operation.plan.id, entryFromLive(operation));
+      return next;
+    });
+    const focus = live.find((operation) => operation.prompt) ?? live[0];
+    if (!activeOperationRef.current) {
+      setActiveOperationId(focus.plan.id);
+      setActivePlan(focus.plan);
+      if (focus.prompt) setOperationDrawerOpen(true);
+    }
+  }, []);
+
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
     let unlisten: undefined | (() => void);
     api.onOperationEvent((event) => {
-      setOperationEvents((current) => current.some((item) => item.operation_id === event.operation_id && item.sequence === event.sequence) ? current : [...current, event]);
-      if (["succeeded", "failed", "cancelled"].includes(event.state)) {
+      setOperationStore((current) => applyOperationEvent(current, event, activeOperationRef.current));
+      if (isTerminal(event.state)) {
+        setLivePlans((current) => {
+          if (!current.has(event.operation_id)) return current;
+          const next = new Map(current);
+          next.delete(event.operation_id);
+          return next;
+        });
         setToast({ tone: event.state === "succeeded" ? "success" : "error", message: event.title });
         void refreshOperationalData();
       }
@@ -137,23 +164,39 @@ function AppContent() {
     () => data?.prefixes.find((prefix) => prefix.id === selectedPrefixId) ?? null,
     [data?.prefixes, selectedPrefixId],
   );
-  const currentEvents = useMemo(
-    () => operationEvents.filter((event) => event.operation_id === activeOperationId).sort((left, right) => left.sequence - right.sequence),
-    [operationEvents, activeOperationId],
-  );
-  const activeOperationEvent = currentEvents.at(-1);
-  const activeOperationFinished = Boolean(activeOperationEvent && ["succeeded", "failed", "cancelled"].includes(activeOperationEvent.state));
-  const runningCount = data?.operations.filter((operation) => ["running", "preflight", "waiting_for_user"].includes(operation.state)).length ?? 0;
-  const winetricksDependency = data?.system.dependencies.find((dependency) => dependency.id === "winetricks");
-  const compatibilityHostReady = Boolean(
-    winetricksDependency?.available
-      && data
-      && hasVersionToken(winetricksDependency.version, data.catalog.upstream_tag),
-  );
+  const activeEntry = activeOperationId ? operationStore.get(activeOperationId) ?? null : null;
+  const activeOperationEvent = activeEntry?.latest ?? undefined;
+  const activeOperationFinished = isTerminal(activeEntry?.state);
+  const runningCount = data?.operations.filter((operation) => LIVE_STATES.has(operation.state)).length ?? 0;
+  const compatibilityHostReady = data?.system.compatibility_host?.state === "ready";
 
   useEffect(() => {
-    if (activeOperationEvent?.prompt) setOperationDrawerOpen(true);
-  }, [activeOperationEvent?.prompt?.id]);
+    if (activeEntry?.prompt) setOperationDrawerOpen(true);
+  }, [activeEntry?.prompt?.id]);
+
+  // A prompt raised by any live operation (not only the active one) must reach the user.
+  useEffect(() => {
+    for (const [id, entry] of operationStore) {
+      if (entry.prompt && id !== activeOperationId && livePlans.has(id)) {
+        setActiveOperationId(id);
+        setActivePlan(livePlans.get(id) ?? null);
+        setOperationDrawerOpen(true);
+        break;
+      }
+    }
+  }, [operationStore, activeOperationId, livePlans]);
+
+  const openOperation = useCallback((operationId: UUID) => {
+    const plan = livePlans.get(operationId);
+    if (!plan) return;
+    setActiveOperationId(operationId);
+    setActivePlan(plan);
+    setOperationDrawerOpen(true);
+  }, [livePlans]);
+
+  const cancelOperation = useCallback((operationId: UUID) => {
+    api.cancelOperation(operationId).catch((reason) => setToast({ tone: "error", message: String(reason) }));
+  }, []);
 
   async function refreshOperationalData() {
     try {
@@ -177,7 +220,7 @@ function AppContent() {
       const operations = await api.clearOperationHistory();
       const remainingIds = new Set(operations.map((operation) => operation.id));
       setData((current) => current ? { ...current, operations } : current);
-      setOperationEvents((current) => current.filter((event) => remainingIds.has(event.operation_id) || event.operation_id === activeOperationId));
+      setOperationStore((current) => new Map([...current].filter(([id]) => remainingIds.has(id) || id === activeOperationId)));
       setToast({ tone: "success", message: t("Activity history cleared") });
     } catch (reason) {
       setToast({ tone: "error", message: t("Could not clear activity history: {error}", { error: String(reason) }) });
@@ -191,10 +234,11 @@ function AppContent() {
   }, []);
   const openTrashPrefixDialog = useCallback(() => setTrashOpen(true), []);
 
-  const handlePrefixComplete = (prefixes: WinePrefix[]) => {
+  const handlePrefixComplete = (prefixes: WinePrefix[], path: string) => {
     setData((current) => current ? { ...current, prefixes } : current);
-    const newest = prefixes.at(-1);
-    if (newest) setSelectedPrefixId(newest.id);
+    const normalized = path.replace(/\/+$/, "");
+    const added = prefixes.find((prefix) => prefix.path === normalized) ?? prefixes.find((prefix) => prefix.path.endsWith(normalized.split("/").at(-1) ?? ""));
+    if (added) setSelectedPrefixId(added.id);
     setView("prefix");
     setToast({ tone: "success", message: t("Wine prefix is ready") });
   };
@@ -354,6 +398,28 @@ function AppContent() {
     }
   };
 
+  const deleteRestorePoint = async (restorePointId: UUID) => {
+    if (!window.confirm(t("Permanently delete this snapshot? This cannot be undone."))) return;
+    try {
+      const restorePoints = await api.deleteRestorePoint(restorePointId);
+      setData((current) => current ? { ...current, restore_points: restorePoints } : current);
+      setToast({ tone: "success", message: t("Snapshot deleted") });
+    } catch (reason) {
+      setToast({ tone: "error", message: String(reason) });
+    }
+  };
+
+  const restoreSnapshot = async (restorePointId: UUID) => {
+    if (!window.confirm(t("Restore this snapshot? The current prefix will be moved to Trash first."))) return;
+    try {
+      await api.restorePrefix(restorePointId, true);
+      await load();
+      setToast({ tone: "success", message: t("Wine prefix restored") });
+    } catch (reason) {
+      setToast({ tone: "error", message: String(reason) });
+    }
+  };
+
   const restorePrefix = async (restorePointId: UUID) => {
     if (!window.confirm(t("Restore this saved prefix? The original target directory must not exist."))) return;
     try {
@@ -377,7 +443,7 @@ function AppContent() {
   if (fatalError || !data) return <FatalError error={fatalError ?? t("Bettertricks could not initialize")} onRetry={load} />;
 
   return (
-    <div className={clsx("app-shell", data.settings.reduced_motion && "reduce-motion")}>
+    <div className={clsx("app-shell", data.settings.reduced_motion && "reduce-motion")} data-operation-state={activeEntry?.state ?? "idle"}>
       <a className="skip-link" href="#main-content">{t("Skip to content")}</a>
       <Sidebar
         view={view}
@@ -395,7 +461,7 @@ function AppContent() {
           detail: activeOperationFinished
             ? t("View operation result")
             : t("{percent}% · {current} of {total}", { percent: Math.round(Math.max(0, Math.min(1, activeOperationEvent?.progress ?? 0)) * 100), current: activeOperationEvent?.step ?? 0, total: activeOperationEvent?.total_steps ?? activePlan.steps.length }),
-          state: activeOperationEvent?.state ?? "planned",
+          state: activeEntry?.state ?? "planned",
         } : null}
         onOpenOperation={() => setOperationDrawerOpen(true)}
       />
@@ -427,7 +493,18 @@ function AppContent() {
             onReview={() => setReviewOpen(true)}
           />
         ) : view === "activity" ? (
-          <ActivityView operations={data.operations} onRefresh={refreshOperationalData} onClearActivity={clearActivity} onRetryRecipes={prepareRetry} />
+          <ActivityView
+            operations={data.operations}
+            liveOperationIds={new Set(livePlans.keys())}
+            restorePoints={data.restore_points}
+            onRefresh={refreshOperationalData}
+            onClearActivity={clearActivity}
+            onRetryRecipes={prepareRetry}
+            onOpenOperation={openOperation}
+            onCancelOperation={cancelOperation}
+            onRestoreSnapshot={restoreSnapshot}
+            onDeleteSnapshot={deleteRestorePoint}
+          />
         ) : (
           <SettingsView
             data={data}
@@ -442,11 +519,12 @@ function AppContent() {
             onInstallCompatibilityHost={installCompatibilityHost}
             compatibilityHostInstalling={installingCompatibilityHost}
             onRestorePrefix={restorePrefix}
+            onDeleteRestorePoint={deleteRestorePoint}
           />
         )}
       </main>
 
-      <AddPrefixDialog open={addPrefixOpen} onOpenChange={setAddPrefixOpen} onComplete={handlePrefixComplete} />
+      <AddPrefixDialog open={addPrefixOpen} onOpenChange={setAddPrefixOpen} onComplete={handlePrefixComplete} runtimes={data.system.runtimes} />
       <ReviewDialog
         open={reviewOpen}
         onOpenChange={setReviewOpen}
@@ -456,8 +534,8 @@ function AppContent() {
         onStarted={(operationId, plan) => {
           setActiveOperationId(operationId);
           setActivePlan(plan);
+          setLivePlans((current) => new Map(current).set(operationId, plan));
           setOperationDrawerOpen(true);
-          setOperationEvents((current) => current.filter((event) => event.operation_id !== operationId));
           setSelectedRecipes(new Set());
         }}
       />
@@ -481,7 +559,7 @@ function AppContent() {
         <OperationDrawer
           operationId={activeOperationId}
           plan={activePlan}
-          events={currentEvents}
+          entry={activeEntry}
           onClose={() => {
             setOperationDrawerOpen(false);
             if (activeOperationFinished) {
@@ -489,7 +567,7 @@ function AppContent() {
               setActivePlan(null);
             }
           }}
-          onCancel={() => activeOperationId && api.cancelOperation(activeOperationId).catch((reason) => setToast({ tone: "error", message: String(reason) }))}
+          onCancel={() => activeOperationId && cancelOperation(activeOperationId)}
           onRespond={(promptId, choiceId) => activeOperationId
             ? api.respondToPrompt({ operation_id: activeOperationId, prompt_id: promptId, choice_id: choiceId })
             : Promise.reject(new Error("No active operation"))}

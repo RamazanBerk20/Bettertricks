@@ -2,13 +2,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use bettertricks_core::{
-    AppPaths, AppSettings, CacheStats, Catalog, CatalogQuery, CatalogRelease, CatalogSource,
-    CatalogSummary, CatalogUpdater, LegacyVerbHost, LegacyVerbInfo, OperationEngine,
+    AppPaths, AppSettings, CacheStats, Catalog, CatalogQuery, CatalogRelease, CatalogSummary,
+    CatalogUpdater, LegacyVerbHost, LegacyVerbInfo, LiveOperation, OperationEngine,
     OperationEventSink, OperationOptions, OperationPlan, OperationRecord, OperationRequest,
     Planner, PrefixArchitecture, PrefixDiscovery, PromptResponse, Recipe, RecipeListItem,
-    RecoveryManager, RestorePoint, Store, SystemInspector, SystemReport, WinePrefix,
+    RecoveryManager, RestorePoint, Session, Store, SystemInspector, SystemReport, WinePrefix,
     install_managed_compatibility_host, rollback_catalog as rollback_active_catalog,
-    validate_existing_prefix_path, validate_new_prefix_path,
+    rollback_target,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -45,6 +45,7 @@ struct BootstrapPayload {
     restore_points: Vec<RestorePoint>,
     catalog_signed: bool,
     catalog_rollback_available: bool,
+    live_operations: Vec<LiveOperation>,
 }
 
 #[derive(Debug, Serialize)]
@@ -95,6 +96,10 @@ struct LegacyVerbRunRequest {
 
 #[tauri::command]
 async fn bootstrap(state: State<'_, AppState>) -> CommandResult<BootstrapPayload> {
+    state
+        .engine
+        .reconcile_interrupted()
+        .map_err(command_error)?;
     let system = state.inspector.inspect().await.map_err(command_error)?;
     let prefixes = state.discovery.discover().await.map_err(command_error)?;
     Ok(BootstrapPayload {
@@ -111,13 +116,18 @@ async fn bootstrap(state: State<'_, AppState>) -> CommandResult<BootstrapPayload
             .map_err(command_error)?
             .and_then(|version| version.signature)
             .is_some(),
-        catalog_rollback_available: state
-            .store
-            .catalog_versions()
+        catalog_rollback_available: rollback_target(&state.store)
             .map_err(command_error)?
-            .into_iter()
-            .any(|version| !version.active && version.path.is_dir()),
+            .is_some(),
+        live_operations: state.engine.live_operations(),
     })
+}
+
+/// Live operations with their latest event and pending prompt; the UI re-reads this after a
+/// reload so a prompt is never lost with the webview's state.
+#[tauri::command]
+fn active_operations(state: State<'_, AppState>) -> Vec<LiveOperation> {
+    state.engine.live_operations()
 }
 
 #[tauri::command]
@@ -127,8 +137,7 @@ async fn inspect_system(state: State<'_, AppState>) -> CommandResult<SystemRepor
 
 #[tauri::command]
 async fn install_compatibility_host(state: State<'_, AppState>) -> CommandResult<SystemReport> {
-    let baseline = state.catalog.summary().upstream_tag;
-    install_managed_compatibility_host(&state.paths, &baseline)
+    install_managed_compatibility_host(&state.paths, &state.catalog)
         .await
         .map_err(command_error)?;
     state.inspector.inspect().await.map_err(command_error)
@@ -178,85 +187,15 @@ async fn create_prefix(
     if request.name.trim().is_empty() {
         return Err("Prefix name cannot be empty".into());
     }
-    let path = validate_new_prefix_path(&request.path).map_err(command_error)?;
-    if path.exists() && path.read_dir().map_err(command_error)?.next().is_some() {
-        return Err("The selected directory is not empty".into());
-    }
-    let parent = path
-        .parent()
-        .ok_or_else(|| "Prefix path has no parent directory".to_string())?;
-    tokio::fs::create_dir_all(parent)
-        .await
-        .map_err(command_error)?;
-    let wine = request
-        .runtime
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("wine"));
-    let wineserver = wine
-        .parent()
-        .map(|directory| directory.join("wineserver"))
-        .filter(|candidate| candidate.is_file())
-        .unwrap_or_else(|| PathBuf::from("wineserver"));
-    let name = path
-        .file_name()
-        .ok_or_else(|| "Prefix path has no directory name".to_string())?
-        .to_string_lossy();
-    let staging = parent.join(format!(
-        ".{name}.bettertricks-create-{}.partial",
-        Uuid::new_v4()
-    ));
-    let status = Command::new(&wine)
-        .arg("wineboot")
-        .arg("-u")
-        .env("WINEPREFIX", &staging)
-        .env(
-            "WINEARCH",
-            if request.architecture == PrefixArchitecture::Win32 {
-                "win32"
-            } else {
-                "win64"
-            },
-        )
-        .status()
-        .await
-        .map_err(command_error);
-    let status = match status {
-        Ok(status) => status,
-        Err(error) => {
-            cleanup_staged_prefix(&staging, &wineserver).await;
-            return Err(error);
-        }
-    };
-    if !status.success() {
-        cleanup_staged_prefix(&staging, &wineserver).await;
-        return Err(format!(
-            "wineboot exited with {}",
-            status.code().unwrap_or(-1)
-        ));
-    }
-    let wait_status = Command::new(&wineserver)
-        .arg("-w")
-        .env("WINEPREFIX", &staging)
-        .status()
-        .await
-        .map_err(command_error);
-    if !wait_status.is_ok_and(|status| status.success()) {
-        cleanup_staged_prefix(&staging, &wineserver).await;
-        return Err("wineserver did not finish prefix initialization cleanly".into());
-    }
-    if path.exists()
-        && let Err(error) = tokio::fs::remove_dir(&path).await
-    {
-        cleanup_staged_prefix(&staging, &wineserver).await;
-        return Err(format!("The target directory stopped being empty: {error}"));
-    }
-    if let Err(error) = tokio::fs::rename(&staging, &path).await {
-        cleanup_staged_prefix(&staging, &wineserver).await;
-        return Err(command_error(error));
-    }
     state
-        .discovery
-        .register_manual(&path, request.name.trim(), request.runtime.as_deref())
+        .engine
+        .create_prefix(
+            &request.path,
+            request.name.trim(),
+            request.architecture,
+            request.runtime.as_deref(),
+        )
+        .await
         .map_err(command_error)?;
     state.discovery.discover().await.map_err(command_error)
 }
@@ -314,7 +253,21 @@ async fn plan_operation(
         .by_id(request.prefix_id)
         .await
         .map_err(command_error)?;
-    state.planner.plan(request, prefix).map_err(command_error)
+    plan_blocking(&state.planner, request, prefix).await
+}
+
+/// Planning may probe the system `winetricks` (cached after the first call); keep it off the
+/// async workers.
+async fn plan_blocking(
+    planner: &Planner,
+    request: OperationRequest,
+    prefix: WinePrefix,
+) -> CommandResult<OperationPlan> {
+    let planner = planner.clone();
+    tauri::async_runtime::spawn_blocking(move || planner.plan(request, prefix))
+        .await
+        .map_err(command_error)?
+        .map_err(command_error)
 }
 
 #[tauri::command]
@@ -340,7 +293,7 @@ async fn start_operation(
         .by_id(request.prefix_id)
         .await
         .map_err(command_error)?;
-    let verified_plan = state.planner.plan(request, prefix).map_err(command_error)?;
+    let verified_plan = plan_blocking(&state.planner, request, prefix).await?;
     let sink: Arc<dyn OperationEventSink> =
         Arc::new(move |event: bettertricks_core::OperationEvent| {
             let _ = app.emit("operation-event", event);
@@ -348,6 +301,7 @@ async fn start_operation(
     state
         .engine
         .start(verified_plan, sink)
+        .await
         .map_err(command_error)
 }
 
@@ -363,6 +317,10 @@ fn respond_to_prompt(state: State<'_, AppState>, response: PromptResponse) -> Co
 
 #[tauri::command]
 fn operation_history(state: State<'_, AppState>) -> CommandResult<Vec<OperationRecord>> {
+    state
+        .engine
+        .reconcile_interrupted()
+        .map_err(command_error)?;
     state.store.operations(200).map_err(command_error)
 }
 
@@ -430,10 +388,23 @@ async fn create_restore_point(
         .await
         .map_err(command_error)?;
     state
-        .recovery
-        .create(&prefix, None)
+        .engine
+        .create_restore_point(&prefix)
         .await
         .map_err(command_error)
+}
+
+#[tauri::command]
+async fn delete_restore_point(
+    state: State<'_, AppState>,
+    restore_point_id: Uuid,
+) -> CommandResult<Vec<RestorePoint>> {
+    state
+        .recovery
+        .delete(restore_point_id)
+        .await
+        .map_err(command_error)?;
+    state.recovery.list(None).map_err(command_error)
 }
 
 #[tauri::command]
@@ -449,7 +420,11 @@ async fn clear_restore_points(
 }
 
 #[tauri::command]
-async fn restore_prefix(state: State<'_, AppState>, restore_point_id: Uuid) -> CommandResult<()> {
+async fn restore_prefix(
+    state: State<'_, AppState>,
+    restore_point_id: Uuid,
+    replace_existing: Option<bool>,
+) -> CommandResult<()> {
     let restore_point = state
         .recovery
         .list(None)
@@ -458,8 +433,8 @@ async fn restore_prefix(state: State<'_, AppState>, restore_point_id: Uuid) -> C
         .find(|point| point.id == restore_point_id)
         .ok_or_else(|| format!("Restore point {restore_point_id} was not found"))?;
     state
-        .recovery
-        .restore(&restore_point)
+        .engine
+        .restore(&restore_point, replace_existing.unwrap_or(false))
         .await
         .map_err(command_error)
 }
@@ -474,10 +449,6 @@ async fn launch_prefix_tool(
         .by_id(request.prefix_id)
         .await
         .map_err(command_error)?;
-    let wine = prefix
-        .runtime
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("wine"));
     let (program, arguments): (&str, Vec<String>) = match request.tool.as_str() {
         "winecfg" => ("winecfg", Vec::new()),
         "regedit" => ("regedit", Vec::new()),
@@ -513,17 +484,29 @@ async fn launch_prefix_tool(
         }
         _ => return Err(format!("Unknown prefix tool: {}", request.tool)),
     };
-    Command::new(wine)
-        .arg(program)
-        .args(arguments)
-        .env("WINEPREFIX", prefix.path)
-        .spawn()
-        .map_err(command_error)?;
-    Ok(())
+    state
+        .engine
+        .launch_tool(&prefix, program, &arguments)
+        .await
+        .map_err(command_error)
 }
 
+/// Opens a directory in the file manager: only known prefixes and the app's own data,
+/// state and cache directories, never arbitrary files (a `.desktop` file could execute).
 #[tauri::command]
-async fn open_path(path: PathBuf) -> CommandResult<()> {
+async fn open_path(state: State<'_, AppState>, path: PathBuf) -> CommandResult<()> {
+    let path = std::fs::canonicalize(&path).map_err(command_error)?;
+    let allowed_root = [
+        &state.paths.data,
+        &state.paths.state,
+        &state.paths.winetricks_cache,
+    ]
+    .iter()
+    .filter_map(|root| std::fs::canonicalize(root).ok())
+    .any(|root| path.starts_with(root));
+    if !path.is_dir() || !(allowed_root || state.discovery.is_known_prefix_path(&path)) {
+        return Err("Only Wine prefixes and Bettertricks folders can be opened".into());
+    }
     Command::new("xdg-open")
         .arg(path)
         .spawn()
@@ -568,27 +551,12 @@ async fn trash_prefix(
             prefix.name
         ));
     }
-    let path = validate_existing_prefix_path(&prefix.path).map_err(command_error)?;
-    let status = Command::new("gio")
-        .arg("trash")
-        .arg(&path)
-        .status()
+    state
+        .engine
+        .trash_prefix(&prefix)
         .await
         .map_err(command_error)?;
-    if !status.success() {
-        return Err("The desktop trash service could not move this prefix".into());
-    }
-    let _ = state.discovery.unregister_manual(&path);
     state.discovery.discover().await.map_err(command_error)
-}
-
-async fn cleanup_staged_prefix(path: &std::path::Path, wineserver: &std::path::Path) {
-    let _ = Command::new(wineserver)
-        .arg("-k")
-        .env("WINEPREFIX", path)
-        .status()
-        .await;
-    let _ = tokio::fs::remove_dir_all(path).await;
 }
 
 #[tauri::command]
@@ -609,28 +577,22 @@ async fn run_legacy_verb(
         .by_id(request.prefix_id)
         .await
         .map_err(command_error)?;
-    if prefix.exists {
-        state
-            .recovery
-            .create(&prefix, None)
-            .await
-            .map_err(command_error)?;
-    }
-    state
+    let info = state
         .legacy_host
-        .run(&request.path, &prefix, &request.options, request.trusted)
+        .inspect(&request.path)
+        .map_err(command_error)?;
+    state
+        .engine
+        .run_legacy_verb(&info, &prefix, &request.options)
         .await
         .map_err(command_error)
 }
 
 #[tauri::command]
 async fn check_catalog_update(state: State<'_, AppState>) -> CommandResult<CatalogUpdateStatus> {
-    let rollback_available = state
-        .store
-        .catalog_versions()
+    let rollback_available = rollback_target(&state.store)
         .map_err(command_error)?
-        .into_iter()
-        .any(|version| !version.active && version.path.is_dir());
+        .is_some();
     let Some(config) = &state.catalog_updater else {
         return Ok(CatalogUpdateStatus {
             configured: false,
@@ -695,70 +657,19 @@ fn rollback_catalog_version(state: State<'_, AppState>) -> CommandResult<Catalog
 
 fn build_state(app: &tauri::App) -> Result<AppState, String> {
     let paths = AppPaths::discover().map_err(command_error)?;
-    let store = Arc::new(Store::open(&paths).map_err(command_error)?);
-    let bundled_catalog_path = catalog_path(app)?;
-    let active_catalog = store.active_catalog_version().map_err(command_error)?;
-    let catalog_path = active_catalog
-        .as_ref()
-        .map(|version| version.path.clone())
-        .unwrap_or_else(|| bundled_catalog_path.clone());
-    let (version, upstream_tag) = catalog_identity(&catalog_path);
-    let catalog_source = CatalogSource {
-        path: catalog_path.clone(),
-        version: version.clone(),
-        upstream_tag: upstream_tag.clone(),
-    };
-    let (catalog, loaded_path, signature) = match Catalog::load(
-        catalog_source,
-        paths.winetricks_cache.clone(),
-    ) {
-        Ok(catalog) => (
-            catalog,
-            catalog_path,
-            active_catalog.and_then(|active| active.signature),
-        ),
-        Err(error) if catalog_path != bundled_catalog_path => {
-            tracing::warn!(%error, "active catalog is invalid; falling back to the bundled catalog");
-            let (bundled_version, bundled_upstream) = catalog_identity(&bundled_catalog_path);
-            let catalog = Catalog::load(
-                CatalogSource {
-                    path: bundled_catalog_path.clone(),
-                    version: bundled_version,
-                    upstream_tag: bundled_upstream,
-                },
-                paths.winetricks_cache.clone(),
-            )
-            .map_err(command_error)?;
-            (catalog, bundled_catalog_path, None)
-        }
-        Err(error) => return Err(command_error(error)),
-    };
-    let summary = catalog.summary();
-    store
-        .activate_catalog_version(
-            &summary.version,
-            &summary.upstream_tag,
-            &loaded_path,
-            signature.as_deref(),
-        )
-        .map_err(command_error)?;
-    let discovery = PrefixDiscovery::new(store.clone());
-    let planner = Planner::with_paths(catalog.clone(), &paths);
-    let engine = OperationEngine::new(catalog.clone(), paths.clone(), store.clone());
-    let recovery = RecoveryManager::new(paths.clone(), store.clone());
-    let inspector = SystemInspector::new(paths.clone());
-    let legacy_host = LegacyVerbHost::discover_with_paths(&paths);
-    let catalog_updater = configured_catalog_updater(&paths, &catalog, &store);
+    let session = Session::open(paths, &catalog_path(app)?).map_err(command_error)?;
+    let catalog_updater =
+        configured_catalog_updater(&session.paths, &session.catalog, &session.store);
     Ok(AppState {
-        paths,
-        store,
-        catalog,
-        discovery,
-        planner,
-        engine,
-        recovery,
-        inspector,
-        legacy_host,
+        paths: session.paths,
+        store: session.store,
+        catalog: session.catalog,
+        discovery: session.discovery,
+        planner: session.planner,
+        engine: session.engine,
+        recovery: session.recovery,
+        inspector: session.inspector,
+        legacy_host: session.legacy_host,
         catalog_updater,
     })
 }
@@ -788,25 +699,6 @@ fn configured_catalog_updater(
             None
         }
     }
-}
-
-fn catalog_identity(path: &std::path::Path) -> (String, String) {
-    let manifest = std::fs::read_to_string(path.join("manifest.json"))
-        .ok()
-        .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok());
-    let version = manifest
-        .as_ref()
-        .and_then(|value| value.get("version"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("bundled")
-        .to_string();
-    let upstream = manifest
-        .as_ref()
-        .and_then(|value| value.get("upstreamTag"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("unknown")
-        .to_string();
-    (version, upstream)
 }
 
 fn catalog_path(app: &tauri::App) -> Result<PathBuf, String> {
@@ -848,7 +740,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let state = build_state(app)?;
-            let automatic_update = state.store.settings()?.catalog_auto_update;
+            // A catalog the user rolled back to stays until they update explicitly.
+            let automatic_update = state.store.settings()?.catalog_auto_update
+                && !state.store.active_catalog_pinned()?;
             let update = state.catalog_updater.clone();
             let current_version = state.catalog.summary().version;
             app.manage(state);
@@ -887,6 +781,7 @@ pub fn run() {
             start_operation,
             cancel_operation,
             respond_to_prompt,
+            active_operations,
             operation_history,
             clear_operation_history,
             get_settings,
@@ -895,6 +790,7 @@ pub fn run() {
             clear_cache,
             list_restore_points,
             create_restore_point,
+            delete_restore_point,
             clear_restore_points,
             restore_prefix,
             launch_prefix_tool,
@@ -907,6 +803,13 @@ pub fn run() {
             install_catalog_update,
             rollback_catalog_version,
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Bettertricks");
+        .build(tauri::generate_context!())
+        .expect("failed to build Bettertricks")
+        .run(|_, event| {
+            // Tool windows and installers run in their own process groups; stop them with
+            // the app instead of leaving them writing to an unlocked prefix.
+            if let tauri::RunEvent::Exit = event {
+                bettertricks_core::stop_all_groups();
+            }
+        });
 }

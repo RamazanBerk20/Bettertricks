@@ -4,22 +4,40 @@ use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
 use crate::{
-    AppPaths, CacheStats, DependencyCheck, LegacyVerbHost, Result, RuntimeSource, SystemReport,
-    WineRuntime,
+    AppPaths, CacheStats, Catalog, DependencyCheck, HostStatus, LegacyVerbHost, Result,
+    RuntimeSource, SystemReport, WineRuntime,
 };
+
+const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct SystemInspector {
     paths: AppPaths,
+    catalog: Catalog,
+    legacy_host: LegacyVerbHost,
 }
 
 impl SystemInspector {
-    pub fn new(paths: AppPaths) -> Self {
-        Self { paths }
+    pub fn new(paths: AppPaths, catalog: Catalog) -> Self {
+        Self {
+            legacy_host: LegacyVerbHost::for_catalog(&paths, &catalog),
+            paths,
+            catalog,
+        }
+    }
+
+    pub fn compatibility_host(&self) -> HostStatus {
+        self.legacy_host
+            .status(&self.catalog.summary().upstream_tag)
     }
 
     pub async fn inspect(&self) -> Result<SystemReport> {
-        let dependencies = self.dependencies().await;
+        let inspector = self.clone();
+        let compatibility_host =
+            tokio::task::spawn_blocking(move || inspector.compatibility_host())
+                .await
+                .map_err(|error| crate::BettertricksError::Io(std::io::Error::other(error)))?;
+        let dependencies = self.dependencies(&compatibility_host).await;
         let runtimes = self.runtimes().await;
         let ready = dependencies
             .iter()
@@ -33,6 +51,7 @@ impl SystemInspector {
             desktop: std::env::var("XDG_CURRENT_DESKTOP").ok(),
             dependencies,
             runtimes,
+            compatibility_host,
             data_directory: self.paths.data.clone(),
             cache_directory: self.paths.winetricks_cache.clone(),
             state_directory: self.paths.state.clone(),
@@ -61,7 +80,7 @@ impl SystemInspector {
         }
     }
 
-    async fn dependencies(&self) -> Vec<DependencyCheck> {
+    async fn dependencies(&self, host: &HostStatus) -> Vec<DependencyCheck> {
         let definitions = [
             ("wine", "Wine", true, "Install Wine from your distribution"),
             (
@@ -109,12 +128,14 @@ impl SystemInspector {
             ),
         ];
         let mut checks = Vec::new();
-        let legacy_host = LegacyVerbHost::discover_with_paths(&self.paths);
         for (id, label, required, remediation) in definitions {
             let (path, resolution_error) = if id == "winetricks" {
-                match legacy_host.binary_path() {
-                    Ok(path) => (path, None),
-                    Err(error) => (None, Some(error.to_string())),
+                match host {
+                    HostStatus::Ready { path, .. } | HostStatus::Mismatched { path, .. } => {
+                        (Some(path.clone()), None)
+                    }
+                    HostStatus::Tampered { reason, .. } => (None, Some(reason.clone())),
+                    HostStatus::Missing { .. } => (None, None),
                 }
             } else {
                 (find_command(id), None)
@@ -220,7 +241,8 @@ pub fn find_command(command: &str) -> Option<PathBuf> {
 }
 
 async fn command_version(path: &Path) -> Option<String> {
-    let output = Command::new(path).arg("--version").output().await.ok()?;
+    let output =
+        crate::process::probe_output(Command::new(path).arg("--version"), PROBE_TIMEOUT).await?;
     let value = if output.stdout.is_empty() {
         output.stderr
     } else {

@@ -24,10 +24,64 @@ pub struct CatalogIndex {
 
 impl CatalogIndex {
     pub fn latest_after(&self, current: &str) -> Option<&CatalogRelease> {
+        let current = CatalogVersion::parse(current);
         self.releases
             .iter()
-            .filter(|release| release.version.as_str() > current)
-            .max_by(|left, right| left.version.cmp(&right.version))
+            .filter(|release| CatalogVersion::parse(&release.version) > current)
+            .max_by_key(|release| CatalogVersion::parse(&release.version))
+    }
+}
+
+/// A catalog version: `winetricks-<upstream tag>` with an optional `-r<revision>` suffix, so
+/// recipe fixes for the same upstream tag can ship as newer catalogs. Ordered by tag, then
+/// revision (numerically: `r10` is newer than `r9`). Unparseable versions sort first.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CatalogVersion {
+    parsed: bool,
+    tag_length: usize,
+    tag: String,
+    revision: u64,
+}
+
+impl CatalogVersion {
+    pub fn parse(version: &str) -> Self {
+        let unparsed = Self {
+            parsed: false,
+            tag_length: 0,
+            tag: version.to_owned(),
+            revision: 0,
+        };
+        let Some(rest) = version.strip_prefix("winetricks-") else {
+            return unparsed;
+        };
+        let (tag, revision) = match rest.split_once("-r") {
+            Some((tag, revision)) => match revision.parse::<u64>() {
+                Ok(revision) => (tag, revision),
+                Err(_) => return unparsed,
+            },
+            None => (rest, 0),
+        };
+        if tag.is_empty()
+            || !tag
+                .chars()
+                .all(|character| character.is_ascii_alphanumeric())
+        {
+            return unparsed;
+        }
+        Self {
+            parsed: true,
+            tag_length: tag.len(),
+            tag: tag.to_owned(),
+            revision,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.parsed
+    }
+
+    pub fn upstream_tag(&self) -> &str {
+        &self.tag
     }
 }
 
@@ -142,8 +196,18 @@ impl CatalogUpdater {
             })
     }
 
+    /// Installs a signed release that is newer than the active catalog. Older or equal
+    /// releases are refused so a replayed, superseded catalog cannot be re-activated; going
+    /// back is only possible through [`rollback_catalog`].
     pub async fn install(&self, release: &CatalogRelease) -> Result<CatalogVersionRecord> {
         self.verify_release(release)?;
+        let current = self.catalog.summary().version;
+        if CatalogVersion::parse(&release.version) <= CatalogVersion::parse(&current) {
+            return Err(BettertricksError::Security(format!(
+                "catalog {} is not newer than the active catalog {current}",
+                release.version
+            )));
+        }
         let response = self
             .client
             .get(release.url.clone())
@@ -204,13 +268,28 @@ impl CatalogUpdater {
     }
 }
 
-pub fn rollback_catalog(catalog: &Catalog, store: &Store) -> Result<CatalogVersionRecord> {
-    let previous = store
-        .catalog_versions()?
+/// The catalog that was active before the current one, if its files still exist.
+pub fn rollback_target(store: &Store) -> Result<Option<CatalogVersionRecord>> {
+    let versions = store.catalog_versions()?;
+    let Some(previous) = versions
+        .iter()
+        .find(|version| version.active)
+        .and_then(|active| active.previous.clone())
+    else {
+        return Ok(None);
+    };
+    Ok(versions
         .into_iter()
-        .find(|version| !version.active && version.path.is_dir())
+        .find(|version| version.version == previous && version.path.is_dir()))
+}
+
+pub fn rollback_catalog(catalog: &Catalog, store: &Store) -> Result<CatalogVersionRecord> {
+    let previous = rollback_target(store)?
         .ok_or_else(|| BettertricksError::Catalog("no previous catalog is available".into()))?;
     activate_existing(catalog, store, &previous)?;
+    // The user chose this catalog: keep it across launches even if the bundled one is newer,
+    // until an explicit update activates another.
+    store.pin_active_catalog()?;
     Ok(CatalogVersionRecord {
         active: true,
         ..previous
@@ -226,6 +305,13 @@ fn validate_release(release: &CatalogRelease) -> Result<()> {
         return Err(BettertricksError::Security(
             "catalog version contains unsafe characters".into(),
         ));
+    }
+    let version = CatalogVersion::parse(&release.version);
+    if !version.is_valid() || version.upstream_tag() != release.upstream_tag {
+        return Err(BettertricksError::Security(format!(
+            "catalog version {} must be winetricks-{}[-rN]",
+            release.version, release.upstream_tag
+        )));
     }
     if release.upstream_tag.trim().is_empty() || release.url.scheme() != "https" {
         return Err(BettertricksError::Security(
@@ -258,29 +344,6 @@ fn install_verified_bundle(
     bytes: &[u8],
 ) -> Result<CatalogVersionRecord> {
     let destination = paths.catalogs.join(&release.version);
-    if destination.is_dir() {
-        validate_manifest(&destination, release)?;
-        let installed = Catalog::load(
-            CatalogSource {
-                path: destination.clone(),
-                version: release.version.clone(),
-                upstream_tag: release.upstream_tag.clone(),
-            },
-            paths.winetricks_cache.clone(),
-        )?;
-        if installed.summary().recipe_count != release.recipe_count {
-            return Err(BettertricksError::Security(
-                "installed catalog does not match its signed recipe count".into(),
-            ));
-        }
-        let record = record_for(release, destination);
-        activate_existing(catalog, store, &record)?;
-        return Ok(CatalogVersionRecord {
-            active: true,
-            ..record
-        });
-    }
-
     let staging = paths.catalogs.join(format!(".staging-{}", Uuid::new_v4()));
     std::fs::create_dir(&staging)?;
     let mut cleanup = StagingCleanup(Some(staging.clone()));
@@ -307,7 +370,16 @@ fn install_verified_bundle(
         )));
     }
 
-    if root == staging {
+    if destination.is_dir() {
+        // Never activate stale files under a reused version name: the verified bytes must be
+        // exactly what is already installed.
+        if !same_tree(&root, &destination)? {
+            return Err(BettertricksError::Security(format!(
+                "a different catalog is already installed as {}; publish a new revision instead",
+                release.version
+            )));
+        }
+    } else if root == staging {
         std::fs::rename(&staging, &destination)?;
         cleanup.0 = None;
     } else {
@@ -352,6 +424,24 @@ fn activate_existing(
     )
 }
 
+fn same_tree(left: &Path, right: &Path) -> Result<bool> {
+    let listing = |root: &Path| -> Result<Vec<(PathBuf, Vec<u8>)>> {
+        let mut entries = Vec::new();
+        for entry in walkdir::WalkDir::new(root)
+            .follow_links(false)
+            .sort_by_file_name()
+        {
+            let entry = entry.map_err(|error| BettertricksError::Catalog(error.to_string()))?;
+            if entry.file_type().is_file() {
+                let relative = entry.path().strip_prefix(root).unwrap_or(entry.path());
+                entries.push((relative.to_path_buf(), std::fs::read(entry.path())?));
+            }
+        }
+        Ok(entries)
+    };
+    Ok(listing(left)? == listing(right)?)
+}
+
 fn record_for(release: &CatalogRelease, path: PathBuf) -> CatalogVersionRecord {
     CatalogVersionRecord {
         version: release.version.clone(),
@@ -360,6 +450,7 @@ fn record_for(release: &CatalogRelease, path: PathBuf) -> CatalogVersionRecord {
         signature: Some(release.signature.clone()),
         active: false,
         installed_at: chrono::Utc::now(),
+        previous: None,
     }
 }
 
@@ -452,6 +543,13 @@ mod tests {
     }
 
     fn catalog_bundle() -> Vec<u8> {
+        catalog_bundle_with_title("Good")
+    }
+
+    fn catalog_bundle_with_title(title: &str) -> Vec<u8> {
+        let good = format!(
+            "schema=1\nid=\"good\"\ncategory=\"settings\"\ntitle=\"{title}\"\n[source]\nupstream_tag=\"20990101\"\nupstream_verb=\"good\"\n"
+        );
         let encoder = zstd::Encoder::new(Vec::new(), 1).unwrap();
         let mut archive = tar::Builder::new(encoder);
         for (path, content) in [
@@ -459,10 +557,7 @@ mod tests {
                 "catalog/manifest.json",
                 r#"{"version":"winetricks-20990101","upstreamTag":"20990101","generatedRecipes":1,"nativeRecipes":0}"#,
             ),
-            (
-                "catalog/good.toml",
-                "schema=1\nid=\"good\"\ncategory=\"settings\"\ntitle=\"Good\"\n[source]\nupstream_tag=\"20990101\"\nupstream_verb=\"good\"\n",
-            ),
+            ("catalog/good.toml", good.as_str()),
         ] {
             let mut header = tar::Header::new_gnu();
             header.set_size(content.len() as u64);
@@ -510,6 +605,37 @@ mod tests {
         let mut tampered = signed;
         tampered.recipe_count = 2;
         assert!(updater.verify_release(&tampered).is_err());
+    }
+
+    #[test]
+    fn orders_revisions_numerically_after_the_upstream_tag() {
+        let parse = CatalogVersion::parse;
+        assert!(parse("winetricks-20260125-r10") > parse("winetricks-20260125-r9"));
+        assert!(parse("winetricks-20260125-r1") > parse("winetricks-20260125"));
+        assert!(parse("winetricks-20260601") > parse("winetricks-20260125-r10"));
+        assert!(!parse("../escape").is_valid());
+        let index = CatalogIndex {
+            schema: 1,
+            releases: ["winetricks-20260125-r9", "winetricks-20260125-r10"]
+                .into_iter()
+                .map(|version| CatalogRelease {
+                    version: version.into(),
+                    upstream_tag: "20260125".into(),
+                    url: Url::parse("https://updates.example.test/c.tar.zst").unwrap(),
+                    sha256: "00".repeat(32),
+                    signature: String::new(),
+                    recipe_count: 1,
+                })
+                .collect(),
+        };
+        assert_eq!(
+            index
+                .latest_after("winetricks-20260125-r2")
+                .unwrap()
+                .version,
+            "winetricks-20260125-r10"
+        );
+        assert!(index.latest_after("winetricks-20260125-r10").is_none());
     }
 
     #[test]
@@ -566,7 +692,14 @@ mod tests {
             installed.version
         );
 
+        // A replayed (not newer) release is refused.
+        assert!(matches!(
+            updater.install(&release).await,
+            Err(BettertricksError::Security(_))
+        ));
+
         let rolled_back = updater.rollback().unwrap();
+        assert!(store.active_catalog_pinned().unwrap());
         assert_eq!(rolled_back.version, "winetricks-20260125");
         assert_eq!(catalog.summary().version, "winetricks-20260125");
         assert_eq!(catalog.get("initial").unwrap().title, "Initial");
@@ -574,5 +707,22 @@ mod tests {
             store.active_catalog_version().unwrap().unwrap().version,
             "winetricks-20260125"
         );
+
+        // Re-installing the same version name with different bytes must not activate the
+        // stale directory.
+        let mut tampered = catalog_bundle_with_title("Changed");
+        let changed = signed_release(&signing_key, &tampered);
+        assert!(matches!(
+            updater
+                .install_bytes(&changed, std::mem::take(&mut tampered))
+                .await,
+            Err(BettertricksError::Security(_))
+        ));
+        assert_eq!(catalog.summary().version, "winetricks-20260125");
+        // Identical bytes re-activate the existing directory.
+        let bytes = catalog_bundle();
+        let same = signed_release(&signing_key, &bytes);
+        updater.install_bytes(&same, bytes).await.unwrap();
+        assert_eq!(catalog.get("good").unwrap().title, "Good");
     }
 }

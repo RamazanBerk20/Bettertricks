@@ -124,6 +124,7 @@ export function StatusBadge({ state }: { state: OperationState }) {
     succeeded: { tone: "success", label: t("Complete") },
     failed: { tone: "danger", label: t("Failed") },
     cancelled: { tone: "neutral", label: t("Cancelled") },
+    interrupted: { tone: "warning", label: t("Interrupted") },
   };
   return <Badge tone={map[state].tone}>{map[state].label}</Badge>;
 }

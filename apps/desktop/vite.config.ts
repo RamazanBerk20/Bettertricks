@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   server: {
+    // Loopback only; the devcontainer sets BETTERTRICKS_DEV_HOST=0.0.0.0 to forward the port.
+    host: process.env.BETTERTRICKS_DEV_HOST ?? "127.0.0.1",
     strictPort: true,
     watch: {
       ignored: ["**/src-tauri/**", "**/catalog/**"],
@@ -23,5 +25,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/test/setup.ts",
+    // Cold module transforms of the full app can exceed vitest's 5 s default per test.
+    testTimeout: 30_000,
   },
 });

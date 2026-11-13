@@ -381,6 +381,30 @@ impl Recipe {
                         ));
                     }
                 }
+                RecipeStep::WindowsVersion {
+                    version,
+                    application,
+                } => {
+                    if !is_safe_registry_segment(version)
+                        || application
+                            .as_deref()
+                            .is_some_and(|application| !is_safe_registry_segment(application))
+                    {
+                        return Err(format!(
+                            "recipe {} has an unsafe Windows version setting",
+                            self.id
+                        ));
+                    }
+                }
+                RecipeStep::Wine { environment, .. } => {
+                    if let Some(key) = environment.keys().find(|key| !is_safe_environment_key(key))
+                    {
+                        return Err(format!(
+                            "recipe {} sets a forbidden environment variable {key}",
+                            self.id
+                        ));
+                    }
+                }
                 RecipeStep::InstallFonts { fonts, .. } => {
                     if fonts.is_empty() {
                         return Err(format!("recipe {} has no fonts to install", self.id));
@@ -456,6 +480,19 @@ fn is_safe_registry_segment(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+/// Recipes may tune Wine through environment variables, but never redirect the prefix, the
+/// server, the dynamic loader, or the executable search path.
+fn is_safe_environment_key(key: &str) -> bool {
+    let mut bytes = key.bytes();
+    bytes.next().is_some_and(|byte| byte.is_ascii_uppercase())
+        && bytes.all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_')
+        && !key.starts_with("LD_")
+        && !matches!(
+            key,
+            "WINEPREFIX" | "WINESERVER" | "WINELOADER" | "WINE" | "PATH"
+        )
 }
 
 fn validate_extraction_paths(
@@ -629,6 +666,37 @@ upstream_verb = "tracked"
             application: Some("..\\unsafe".into()),
         }];
         assert!(recipe.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_unsafe_windows_versions_and_wine_environment() {
+        let mut recipe = recipe_with_filename("installer.exe");
+        recipe.steps = vec![RecipeStep::WindowsVersion {
+            version: "win10\"\n[HKEY_LOCAL_MACHINE]".into(),
+            application: None,
+        }];
+        assert!(recipe.validate().is_err());
+        recipe.steps = vec![RecipeStep::WindowsVersion {
+            version: "win10".into(),
+            application: Some("game.exe".into()),
+        }];
+        assert!(recipe.validate().is_ok());
+        for key in ["LD_PRELOAD", "WINEPREFIX", "PATH", "lower"] {
+            recipe.steps = vec![RecipeStep::Wine {
+                program: "setup.exe".into(),
+                arguments: Vec::new(),
+                unattended_arguments: Vec::new(),
+                environment: BTreeMap::from([(key.to_owned(), "x".to_owned())]),
+            }];
+            assert!(recipe.validate().is_err(), "{key}");
+        }
+        recipe.steps = vec![RecipeStep::Wine {
+            program: "setup.exe".into(),
+            arguments: Vec::new(),
+            unattended_arguments: Vec::new(),
+            environment: BTreeMap::from([("WINEDLLOVERRIDES".to_owned(), "x".to_owned())]),
+        }];
+        assert!(recipe.validate().is_ok());
     }
 
     #[test]
@@ -850,6 +918,20 @@ impl PrefixSource {
     }
 }
 
+/// Prefix lifecycle as seen by every command. `Busy` means another task (in this or any other
+/// Bettertricks process) holds the prefix lock; mutating commands refuse it up front.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PrefixStatus {
+    /// The directory does not exist (not created yet, or moved to Trash).
+    Missing,
+    /// The directory exists but is not an initialized Wine prefix.
+    Uninitialized,
+    #[default]
+    Ready,
+    Busy,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WinePrefix {
     pub id: Uuid,
@@ -864,6 +946,8 @@ pub struct WinePrefix {
     pub installed_verbs: Vec<String>,
     pub size_bytes: Option<u64>,
     pub last_modified: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub status: PrefixStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -904,6 +988,9 @@ pub struct CatalogVersionRecord {
     pub signature: Option<String>,
     pub active: bool,
     pub installed_at: DateTime<Utc>,
+    /// The version that was active before this one was activated (the rollback target).
+    #[serde(default)]
+    pub previous: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1001,6 +1088,23 @@ pub struct PlannedDownload {
     pub urls: Vec<String>,
     pub cached: bool,
     pub manual: bool,
+    #[serde(default)]
+    pub cache_state: CacheState,
+}
+
+/// Download/cache entry lifecycle. The planner only probes (no hashing); the executor moves
+/// `Present` to verified use, or quarantines a mismatching file and downloads again.
+/// `Partial` downloads are private `.part` files and never reach this state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CacheState {
+    /// Not cached; downloaded and checksum-verified during the operation.
+    #[default]
+    Absent,
+    /// A cached file exists; its checksum is verified before use.
+    Present,
+    /// Not cached and only obtainable by the user importing it.
+    ManualRequired,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1022,6 +1126,48 @@ pub enum OperationState {
     Succeeded,
     Failed,
     Cancelled,
+    /// Found non-terminal at startup with no live owner: the process exited mid-operation.
+    Interrupted,
+}
+
+impl OperationState {
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Succeeded | Self::Failed | Self::Cancelled | Self::Interrupted
+        )
+    }
+
+    /// The operation lifecycle shared by the engine, the database, the CLI and the UI.
+    ///
+    /// `Planned` (lock held, row written) → `Preflight` → `Running` ⇄ `WaitingForUser`,
+    /// any live state → `Cancelling` → `Cancelled`, any live state → `Succeeded | Failed`,
+    /// and any live state → `Interrupted` (only via startup reconciliation).
+    pub fn can_transition_to(self, next: Self) -> bool {
+        use OperationState::*;
+        if self.is_terminal() {
+            return false;
+        }
+        match next {
+            Planned => false,
+            Preflight => matches!(self, Planned | Preflight),
+            Running => matches!(self, Preflight | Running | WaitingForUser),
+            WaitingForUser => matches!(self, Running),
+            Cancelling => true,
+            Succeeded => matches!(self, Running | Cancelling),
+            Failed | Cancelled | Interrupted => true,
+        }
+    }
+}
+
+/// A live operation as the engine sees it, so a reloaded UI or another client can re-attach:
+/// the plan, the latest non-log event, and the prompt still waiting for an answer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiveOperation {
+    pub plan: OperationPlan,
+    pub state: OperationState,
+    pub latest: Option<OperationEvent>,
+    pub prompt: Option<OperationPrompt>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1108,6 +1254,11 @@ pub struct RestorePoint {
     pub created_at: DateTime<Utc>,
     pub size_bytes: Option<u64>,
     pub operation_id: Option<Uuid>,
+    /// Registration to recreate on restore, so a trashed manual prefix comes back visible.
+    #[serde(default)]
+    pub prefix_source: Option<PrefixSource>,
+    #[serde(default)]
+    pub runtime: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -1137,9 +1288,51 @@ pub struct SystemReport {
     pub desktop: Option<String>,
     pub dependencies: Vec<DependencyCheck>,
     pub runtimes: Vec<WineRuntime>,
+    pub compatibility_host: HostStatus,
     pub data_directory: PathBuf,
     pub cache_directory: PathBuf,
     pub state_directory: PathBuf,
+}
+
+/// Availability of the Winetricks compatibility host for the active catalog, computed once
+/// in core so the planner, preflight, settings and catalog views agree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum HostStatus {
+    Missing {
+        expected: String,
+    },
+    Mismatched {
+        expected: String,
+        found: String,
+        path: PathBuf,
+    },
+    Tampered {
+        expected: String,
+        reason: String,
+        path: PathBuf,
+    },
+    Ready {
+        tag: String,
+        path: PathBuf,
+        origin: HostOrigin,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HostOrigin {
+    Managed,
+    System,
+}
+
+/// The Winetricks script a catalog runs its tracked recipes with; shipped inside the
+/// (signed) catalog manifest so a catalog update carries its own host.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostPin {
+    pub tag: String,
+    pub url: String,
+    pub sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1158,6 +1351,16 @@ pub struct AppSettings {
     pub show_advanced: bool,
     pub reduced_motion: bool,
     pub custom_wine_binary: Option<PathBuf>,
+    /// Restore points kept per prefix; older ones are pruned after a new one is taken.
+    /// Zero (the default, and what settings saved by v1.0 read as) keeps everything.
+    #[serde(default = "default_restore_point_retention")]
+    pub restore_point_retention: usize,
+}
+
+/// Keep everything unless the user picks a limit: v1.0 kept every restore point, and an
+/// upgrade must not start deleting snapshots on its own.
+fn default_restore_point_retention() -> usize {
+    0
 }
 
 impl Default for AppSettings {
@@ -1170,6 +1373,7 @@ impl Default for AppSettings {
             show_advanced: false,
             reduced_motion: false,
             custom_wine_binary: None,
+            restore_point_retention: default_restore_point_retention(),
         }
     }
 }

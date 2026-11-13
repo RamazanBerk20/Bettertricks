@@ -7,9 +7,10 @@ import { ProgressBar } from "../components/common";
 import { OperationDrawer, ReviewDialog } from "../components/dialogs";
 import { Sidebar } from "../components/sidebar";
 import { api } from "../lib/api";
+import { entryFromEvents } from "../lib/operations";
 import { ActivityView } from "../views/activity-view";
 import { PrefixView } from "../views/prefix-view";
-import type { OperationEvent, OperationPlan, OperationRecord, WinePrefix } from "../types";
+import type { LiveOperation, OperationEvent, OperationPlan, OperationRecord, WinePrefix } from "../types";
 
 describe("Bettertricks desktop shell", () => {
   it("boots into a discovered prefix and opens the searchable catalog", async () => {
@@ -199,6 +200,7 @@ describe("Bettertricks desktop shell", () => {
       dependencies: payload.system.dependencies.map((dependency) => dependency.id === "winetricks"
         ? { ...dependency, available: false, path: null, version: null }
         : dependency),
+      compatibility_host: { state: "missing" as const, expected: "20260125" },
     };
     vi.spyOn(api, "bootstrap").mockResolvedValueOnce({ ...payload, system: unavailableSystem });
     const install = vi.spyOn(api, "installCompatibilityHost").mockResolvedValue({
@@ -206,6 +208,7 @@ describe("Bettertricks desktop shell", () => {
       dependencies: unavailableSystem.dependencies.map((dependency) => dependency.id === "winetricks"
         ? { ...dependency, available: true, path: "/home/user/.local/share/bettertricks/compatibility-hosts/winetricks-20260125", version: "20260125" }
         : dependency),
+      compatibility_host: { state: "ready", tag: "20260125", path: "/home/user/.local/share/bettertricks/compatibility-hosts/winetricks-20260125", origin: "managed" },
     });
 
     render(<TooltipProvider><App /></TooltipProvider>);
@@ -267,7 +270,7 @@ describe("Bettertricks desktop shell", () => {
         onOpenChange={() => undefined}
         prefix={prefix}
         recipeIds={["manual_test"]}
-        settings={{ theme: "system", language: "en", catalog_auto_update: true, restore_before_managed_changes: true, show_advanced: false, reduced_motion: false, custom_wine_binary: null }}
+        settings={{ theme: "system", language: "en", catalog_auto_update: true, restore_before_managed_changes: true, show_advanced: false, reduced_motion: false, custom_wine_binary: null, restore_point_retention: 0 }}
         onStarted={() => undefined}
       />,
     );
@@ -334,7 +337,7 @@ describe("Bettertricks desktop shell", () => {
       timestamp: new Date().toISOString(),
     } as OperationEvent;
 
-    render(<OperationDrawer operationId="operation-id" plan={plan} events={[event]} onClose={close} onCancel={() => undefined} onRespond={respond} onRetry={() => undefined} />);
+    render(<OperationDrawer operationId="operation-id" plan={plan} entry={entryFromEvents([event])} onClose={close} onCancel={() => undefined} onRespond={respond} onRetry={() => undefined} />);
     expect(screen.getByRole("alertdialog", { name: "Continue installation?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toHaveFocus();
     const hide = screen.getByRole("button", { name: "Hide activity drawer" });
@@ -415,13 +418,75 @@ describe("Bettertricks desktop shell", () => {
       },
     ] satisfies OperationEvent[];
 
-    render(<OperationDrawer operationId={plan.id} plan={plan} events={events} onClose={() => undefined} onCancel={() => undefined} onRespond={async () => undefined} onRetry={retry} />);
+    render(<OperationDrawer operationId={plan.id} plan={plan} entry={entryFromEvents(events)} onClose={() => undefined} onCancel={() => undefined} onRespond={async () => undefined} onRetry={retry} />);
 
     expect(screen.getByText(/Last output: checksum rejected/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry Broken component" }));
     expect(retry).toHaveBeenLastCalledWith(["broken_component"]);
     fireEvent.click(screen.getByRole("button", { name: "Retry all (1)" }));
     expect(retry).toHaveBeenLastCalledWith(["broken_component"]);
+  });
+
+  it("re-attaches to a pending prompt after a webview reload", async () => {
+    const payload = await api.bootstrap();
+    const prefix = payload.prefixes[0];
+    const plan = {
+      id: "live-operation",
+      prefix,
+      requested_recipes: ["ask"],
+      resolved_recipes: ["ask"],
+      steps: [],
+      inputs: [],
+      downloads: [],
+      conflicts: [],
+      warnings: [],
+      restore_recommended: false,
+      estimated_download_bytes: null,
+      options: { force: false, unattended: false, verify: true, no_clean: false, isolate: false, torify: false, country: null, create_restore_point: false },
+    } satisfies OperationPlan;
+    const prompt = { id: "prompt-after-reload", level: "confirmation" as const, title: "Still waiting?", message: "Answer survives reloads.", choices: [{ id: "continue", label: "Continue", destructive: false }] };
+    const live: LiveOperation = {
+      plan,
+      state: "waiting_for_user",
+      prompt,
+      latest: { operation_id: plan.id, sequence: 7, state: "waiting_for_user", step: 1, total_steps: 1, recipe_id: "ask", title: "Still waiting?", detail: null, progress: 0.5, prompt: null, log_line: null, failure: null, timestamp: new Date().toISOString() },
+    };
+    vi.spyOn(api, "bootstrap").mockResolvedValueOnce({ ...payload, live_operations: [live] });
+    const respond = vi.spyOn(api, "respondToPrompt").mockResolvedValue(undefined);
+
+    const { container } = render(<TooltipProvider><App /></TooltipProvider>);
+    expect(await screen.findByRole("alertdialog", { name: "Still waiting?" })).toBeInTheDocument();
+    expect(container.querySelector(".operation-drawer")).toHaveAttribute("data-operation-state", "waiting_for_user");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(respond).toHaveBeenCalledWith({ operation_id: plan.id, prompt_id: prompt.id, choice_id: "continue" }));
+    vi.restoreAllMocks();
+  });
+
+  it("offers restore or deletion of the snapshot of an interrupted operation", () => {
+    const restore = vi.fn();
+    const remove = vi.fn();
+    const operation = {
+      id: "interrupted-operation",
+      prefix_id: "prefix",
+      prefix_name: "Game",
+      recipes: ["vcrun2022"],
+      state: "interrupted",
+      created_at: new Date().toISOString(),
+      started_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(),
+      current_step: 1,
+      total_steps: 3,
+      message: "Interrupted",
+      failures: [],
+    } satisfies OperationRecord;
+    const point = { id: "snapshot", prefix_id: "prefix", prefix_name: "Game", prefix_path: "/p", storage_path: "/s", method: "archive" as const, created_at: new Date().toISOString(), size_bytes: 1, operation_id: operation.id };
+    const { container } = render(<ActivityView operations={[operation]} restorePoints={[point]} onRefresh={() => undefined} onClearActivity={async () => undefined} onRetryRecipes={() => undefined} onRestoreSnapshot={restore} onDeleteSnapshot={remove} />);
+
+    expect(container.querySelector("[data-operation-state='interrupted']")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Restore snapshot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete snapshot" }));
+    expect(restore).toHaveBeenCalledWith("snapshot");
+    expect(remove).toHaveBeenCalledWith("snapshot");
   });
 
   it("keeps failure diagnostics and retry actions in activity history", () => {
