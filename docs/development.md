@@ -160,3 +160,10 @@ BETTERTRICKS_SMOKE_SOURCE_HAN_ARCHIVE=/path/to/SourceHanSans.ttc.zip pnpm smoke:
 `pnpm smoke:proton` downloads the pinned GE-Proton release once into
 `$BETTERTRICKS_PROTON_CACHE` (or the XDG cache), verifies its published SHA-512, and repeats the
 same disposable-prefix suite with Proton's Wine tools first on `PATH`.
+
+## README screenshots
+
+The images in `docs/images/` are 1440x900 captures of the mock-backed web preview in the dark
+theme. To refresh them, run `pnpm dev:web` and capture each view (Overview, Components with
+Windows 10 compatibility mode selected, the Review changes dialog for one selected recipe,
+Activity, and Settings scrolled to Restore points) with headless Chromium.

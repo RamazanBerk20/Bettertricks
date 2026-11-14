@@ -57,15 +57,23 @@ and passed as one process argument. `broken_upstream` remains searchable but can
 
 ## Operation lifecycle
 
-Only one operation can mutate a prefix at a time. Other prefixes may run independently.
-Every operation is persisted and emits sequenced events through Tauri:
+Only one operation can mutate a prefix at a time, across the desktop app and the CLI: a
+cross-process lock fails closed, so a second operation on a busy prefix is refused. Other
+prefixes may run independently. Every operation is persisted and emits sequenced events through
+Tauri. The engine, database, CLI, and UI share one state model:
 
 ```text
 planned → preflight → running ⇄ waiting_for_user → succeeded
                        │   └─ recipe failure: record diagnostics, skip its dependants,
                        │      and continue independent recipes
-                       └────────────────────────→ failed / cancelled
+                       ├─ cancel → cancelling → cancelled
+                       └────────────────────────→ failed
+any live state ── startup reconciliation ──────→ interrupted
 ```
+
+An operation left running by a crash or quit is marked `interrupted` the next time the desktop
+app or CLI starts. Cancelling stops the whole Wine process group the operation started, not just
+the step in progress. `bettertricks ops list|clear [--json]` shows and clears the journal.
 
 Preflight, cancellation, storage, and security-policy failures stop the operation. A recipe-level
 installer or verification failure does not: Bettertricks stores the component, error, and bounded
@@ -73,8 +81,13 @@ process-output tail, skips only recipes that depend on it, and finishes every in
 The final operation is marked failed if any component failed or was dependency-skipped. The live
 drawer and persisted Activity entry can prepare a reviewed retry for one component or all failures.
 
+Changes to Steam, Lutris, Bottles, and Heroic prefixes are blocked with `runtime_unknown` when
+the launcher's Wine or Proton runtime cannot be determined and validated, until a runtime is
+chosen for the prefix or the change is forced.
+
 Downloads use HTTPS-capable Rust networking, optional Tor SOCKS routing, per-cache-path
-coordination, operation-unique partial files, and SHA-256 verification before activation.
+coordination, operation-unique partial files, and SHA-256 verification before activation. A cached file that fails verification is quarantined
+and other mirrors are tried before the download fails.
 Manual downloads use the same 16 GiB safety cap and are copied into the cache through an
 operation-unique staging file; a checksum mismatch removes the staging file and never activates it.
 Recipes may intentionally share Winetricks cache paths only when their filename, checksum,
@@ -87,7 +100,8 @@ the external host starts.
 
 ## Recovery
 
-Restore points prefer copy-on-write reflinks. Other filesystems use `tar.zst`. Records live
+Restore points prefer copy-on-write reflinks. Other filesystems use `tar.zst`. Restore points are
+kept without limit unless a per-prefix limit is chosen in Settings. Records live
 in SQLite while payloads live under the XDG state directory. Prefix deletion uses the
 desktop Trash through `gio`; there is no permanent-delete command in the normal UI.
 Restore reads reject symlinks and payloads outside Bettertricks' canonical backup root.
@@ -109,7 +123,8 @@ count with Ed25519. The updater then:
 5. renames the validated directory into versioned storage; and
 6. updates the active SQLite record transactionally.
 
-Older catalogs remain available for rollback. The release tool creates deterministic
+Older catalogs remain available for rollback, and a rollback pin survives a newer bundled
+catalog. The signed manifest also carries the pinned compatibility host (tag, URL, SHA-256). The release tool creates deterministic
 `tar.zst` bundles so signatures can be reproduced.
 
 ## Compatibility host and legacy `.verb` files

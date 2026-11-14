@@ -53,7 +53,7 @@ A verb counts as native only when all applicable items are complete:
 
 ## Release gates
 
-The project must not call a release `1.0` until:
+The project did not call a release `1.0` until:
 
 - every non-broken entry has either an audited native implementation or a version-matched
   upstream-host execution path, with the mode visible before execution;
@@ -65,7 +65,7 @@ The project must not call a release `1.0` until:
 - destructive and recovery paths pass fault-injection tests; and
 - compatibility output is compared with the pinned Winetricks baseline.
 
-Bettertricks 1.0 enforces these gates in CI. The concrete runtime/package matrix, commands, and
+Bettertricks 1.0 and 1.1 enforce these gates in CI. The concrete runtime/package matrix, commands, and
 artifact policy are recorded in [release.md](release.md); compatibility-hosted entries remain
 separate from native maturity in every count and UI surface.
 
