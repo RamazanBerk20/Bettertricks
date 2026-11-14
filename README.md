@@ -29,7 +29,7 @@ English interface shown with the bundled preview data.
 
 ## Project status
 
-Bettertricks `1.1.1` is release-gated against all 550 user-visible entries from Winetricks
+Bettertricks `1.2.0` is release-gated against all 550 user-visible entries from Winetricks
 20260125. Its 159 audited native recipes include all
 118 settings verbs, 40 of 42 font verbs, and the deprecated DirectX 9 compatibility no-op.
 The 390 non-broken recipes still awaiting native ports run through a checksum-verified
@@ -43,7 +43,7 @@ are never counted as native. See [the parity ledger](docs/parity.md) and
 ## Install
 
 Download the AppImage, Debian package, or RPM from
-[Bettertricks 1.1.1 on GitHub Releases](https://github.com/RamazanBerk20/Bettertricks/releases/tag/v1.1.1).
+[Bettertricks 1.2.0 on GitHub Releases](https://github.com/RamazanBerk20/Bettertricks/releases/tag/v1.2.0).
 Arch Linux users can install
 [`bettertricks`](https://aur.archlinux.org/packages/bettertricks),
 [`bettertricks-bin`](https://aur.archlinux.org/packages/bettertricks-bin), or

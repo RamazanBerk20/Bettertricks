@@ -2,12 +2,16 @@
 
 All notable Bettertricks changes are documented here.
 
-## Unreleased
+## 1.2.0 — 2026-11-14
 
 Changed:
 
 - The desktop window draws its own top bar instead of the system title bar. It holds the "Search or run" command field (Ctrl K), the prefix you are working in (on every view except that prefix's overview), the running operation, and Minimize, Maximize/Restore and Close buttons. The bar and the sidebar's logo row move the window; double-clicking the bar maximizes it, and the window edges resize it.
 - The command field and the hidden-operation button moved from the sidebar into the bar, and the Components view no longer repeats the target prefix in its header.
+
+Not tested: the new window bar was exercised on Linux only (WebKitGTK); Bettertricks does not ship Windows builds.
+
+Use SHA256SUMS to verify downloaded packages.
 
 ## 1.1.1 — 2026-11-14
 
