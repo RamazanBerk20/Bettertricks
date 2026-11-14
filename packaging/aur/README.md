@@ -2,7 +2,7 @@
 
 Each directory mirrors one AUR package base:
 
-- `bettertricks`: stable release built from source (tag `v$_tag`).
+- `bettertricks`: stable release built from source (tag `v$pkgver`).
 - `bettertricks-bin`: the release `.deb` repackaged.
 - `bettertricks-git`: latest `main` built from source.
 

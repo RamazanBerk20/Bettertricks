@@ -1,6 +1,6 @@
 # Release verification
 
-Bettertricks 1.1 is built from the same catalog, core, CLI, and desktop sources exercised by the
+Bettertricks 1.1.1 is built from the same catalog, core, CLI, and desktop sources exercised by the
 release checks below. The selected compatibility baseline is Winetricks 20260125.
 
 ## Scope
@@ -61,12 +61,12 @@ The Tauri build produces these verified x86-64 release files:
 
 | Format | File | SHA-256 |
 | --- | --- | --- |
-| AppImage | `Bettertricks_1.1_amd64.AppImage` | `cd8e79fb405911e2ae7a9ac7ddfd070904c53a16eac46678bdb360b453505b0b` |
-| Debian | `Bettertricks_1.1_amd64.deb` | `92eacc0d90c969e6d55294d075f20f8845990846df41cc8193a44ff98a1139db` |
-| RPM | `Bettertricks-1.1-1.x86_64.rpm` | `1e28a204e8cfd41b6ebb13691be9b7d81f5238565747ac34f3c4501a09b7c6f6` |
+| AppImage | `Bettertricks_1.1.1_amd64.AppImage` | `deda362c21c18b92b06d49656f3709c82b835d0e3df87fde248c7c6979ec9c00` |
+| Debian | `Bettertricks_1.1.1_amd64.deb` | `e0ee0ae85bcc7ba76641eb4de0b322cdac8f472a615075146ee181ea910ec37c` |
+| RPM | `Bettertricks-1.1.1-1.x86_64.rpm` | `6b7ad79986870f3d04d6dd06c2314b619b7c6f9c7ed92ebedb28653791f17aba` |
 
 `target/release/publish/SHA256SUMS` records the same digests. CI generates it only after every
-release gate passes against the exact 1.1 artifacts and uploads it alongside the packages.
+release gate passes against the exact 1.1.1 artifacts and uploads it alongside the packages.
 Verify all three from the repository root with:
 
 ```sh

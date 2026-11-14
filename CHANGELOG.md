@@ -2,6 +2,19 @@
 
 All notable Bettertricks changes are documented here.
 
+## 1.1.1 — 2026-11-14
+
+Packaging and documentation release; there is no behaviour change from 1.1.0.
+
+Changed:
+
+- The AppImage, Debian and RPM packages published for 1.1 were rebuilt after the `v1.1` tag was created, so the tag did not match them. 1.1.1 is cut from the commit it is built from.
+- The Linux packages ship the licence and NOTICE (`/usr/share/doc/bettertricks/copyright` and `NOTICE` in the deb, `/usr/share/licenses/bettertricks/` otherwise).
+- AUR packages `bettertricks`, `bettertricks-bin` and `bettertricks-git` are published.
+- The documentation and screenshots are refreshed.
+
+Use SHA256SUMS to verify downloaded packages.
+
 ## 1.1.0 — 2026-11-13
 
 Upgrade notes (behaviour changes for existing users):
