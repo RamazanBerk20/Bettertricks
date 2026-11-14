@@ -28,7 +28,7 @@ exact upstream 20260125 script, pinned to SHA-256
 | Managed host | isolated XDG directories | HTTPS download, size/SHA/mode/version checks, atomic publish, idempotence |
 | Debian | clean Ubuntu 24.04 container | dependency install, CLI catalog query, desktop linkage, AT-SPI launch |
 | RPM | clean Fedora 44 container | dependency install, CLI catalog query, desktop linkage |
-| AppImage | clean Ubuntu 24.04 container | self-extraction, bundled CLI/catalog query, desktop/AppRun presence |
+| AppImage | clean Ubuntu 24.04 container | self-extraction, bundled CLI/catalog query, desktop/AppRun presence, no bundled libwayland |
 | Accessibility | WebKitGTK under Xvfb/D-Bus | 65-node AT-SPI tree, 19 buttons, named navigation, focus movement |
 | Interaction/performance | release WebKitGTK under Xvfb | divider-owned 13-step review scrolling, fixed safeguards/actions, hide/reopen during a live run, concurrent catalog selection, bulk selection, cached discovery, and offscreen paint guards |
 | Recovery | core fault-injection tests | corrupt payloads, symlink escape, failed staging, and no-overwrite publish |
@@ -55,15 +55,30 @@ pnpm release:checksums
 declared dependencies in fresh distribution containers. It is slower than the content smoke and
 catches package-manager or runtime-linkage failures that archive inspection cannot.
 
+### AppImage build and GUI check
+
+`pnpm build` runs `scripts/repack-appimage.sh` after the Tauri bundler (CI runs it as its own
+step). The script removes `libwayland-*.so*` from `target/release/bundle/appimage/Bettertricks.AppDir`
+and repacks the AppImage with Tauri's cached `linuxdeploy-plugin-appimage`. The AppImage is built
+on Ubuntu 24.04, so its libwayland-client is 1.22; on a host with a newer Mesa (for example
+Arch with wayland 1.26) it shadows the host copy, the host's `libEGL_mesa.so.0` fails to load
+(`undefined symbol: wl_fixes_interface`), and WebKitGTK aborts with
+`Could not create surfaceless EGL display: EGL_BAD_ALLOC`. libwayland is backwards compatible, so
+the host copy serves the bundled GTK. `pnpm smoke:packages` fails if libwayland is bundled again.
+
+No CI job starts the AppImage GUI: the CI runner's Mesa matches the bundle, so it could not
+reproduce the failure. Before each release, start the AppImage on a current rolling distribution
+(Arch, Fedora) under Wayland and confirm the window shows the sidebar and the top bar.
+
 ## Release artifacts
 
 The Tauri build produces these verified x86-64 release files:
 
 | Format | File | SHA-256 |
 | --- | --- | --- |
-| AppImage | `Bettertricks_1.2_amd64.AppImage` | `6cacf07d9c4c7a13382de1cb3b3780ec3b7f5feba54d92b09f336a819bffb3bc` |
-| Debian | `Bettertricks_1.2_amd64.deb` | `b112fbb8ebe9fbf1c3b680fea5894398c31512d77bff7f6808ef44fb757fb3c8` |
-| RPM | `Bettertricks-1.2-1.x86_64.rpm` | `b3d691c9a2f38102bb0de600169603278c534687b75d2105abfa71395b0ac43e` |
+| AppImage | `Bettertricks_1.2_amd64.AppImage` | `a2326e42dcc0ead1185f124df6c216d65b1eab2d38a6b703ec6cf659cae9fd8d` |
+| Debian | `Bettertricks_1.2_amd64.deb` | `5eda3f27bf96d054cae265d6c4aa59296fdc87b889377142674e887264ad71a6` |
+| RPM | `Bettertricks-1.2-1.x86_64.rpm` | `7773ed4c94b185a906b6ba18eaf6023aa636b5b7cb2a79d5ee404ef054a9a2c7` |
 
 `target/release/publish/SHA256SUMS` records the same digests. CI generates it only after every
 release gate passes against the exact 1.2.0 artifacts and uploads it alongside the packages.

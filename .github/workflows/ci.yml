@@ -117,6 +117,9 @@ jobs:
           NO_STRIP: "1"
         run: pnpm --filter @bettertricks/desktop exec tauri build --ci
 
+      - name: Repack AppImage without libwayland
+        run: bash scripts/repack-appimage.sh
+
       - name: Smoke-test package contents
         run: >-
           bash scripts/smoke-linux-packages.sh

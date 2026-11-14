@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter @bettertricks/desktop tauri dev",
     "dev:web": "pnpm --filter @bettertricks/desktop dev:web",
-    "build": "pnpm --filter @bettertricks/desktop tauri build",
+    "build": "pnpm --filter @bettertricks/desktop tauri build && bash scripts/repack-appimage.sh",
     "build:web": "pnpm --filter @bettertricks/desktop build",
     "smoke:packages": "bash scripts/smoke-linux-packages.sh",
     "smoke:packages:clean": "bash scripts/smoke-clean-linux-packages.sh",

@@ -91,6 +91,11 @@ if [[ -n "$appimage" ]]; then
   rg -q '/usr/lib/Bettertricks/catalog/manifest\.json$' <<<"$appimage_files"
   appimage_recipe_count=$(rg -c '\.toml$' <<<"$appimage_files")
   test "$appimage_recipe_count" -eq 550
+  # A bundled libwayland breaks the host's newer Mesa EGL (see scripts/repack-appimage.sh).
+  if rg -q '/usr/lib/libwayland-[^/]*\.so' <<<"$appimage_files"; then
+    echo "AppImage bundles libwayland; run scripts/repack-appimage.sh" >&2
+    exit 1
+  fi
 fi
 
 echo "Linux package smoke checks passed: 550 recipes in every supplied artifact."

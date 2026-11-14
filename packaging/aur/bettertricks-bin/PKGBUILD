@@ -21,7 +21,7 @@ source=(
   "bettertricks.metainfo.xml::$url/raw/v$pkgver/packaging/linux/io.bettertricks.desktop.metainfo.xml"
 )
 noextract=("$_debname")
-sha256sums=('b112fbb8ebe9fbf1c3b680fea5894398c31512d77bff7f6808ef44fb757fb3c8'
+sha256sums=('5eda3f27bf96d054cae265d6c4aa59296fdc87b889377142674e887264ad71a6'
             'bb826495e04f20eef046c421e2b8ac01fea99fc90215badf0185a210aa4a5208'
             '244031234c734653393af7bb4c7145fe97ad4512e772192507156c006164fb87'
             '36d1716731b8d7782e17bc9c0e5f73e77785ed0fb6a193126e4034957843586f')
