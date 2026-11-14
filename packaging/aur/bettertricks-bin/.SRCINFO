@@ -27,9 +27,9 @@ pkgbase = bettertricks-bin
 	source = LICENSE::https://github.com/RamazanBerk20/Bettertricks/raw/v1.1.1/LICENSE
 	source = bettertricks.desktop::https://github.com/RamazanBerk20/Bettertricks/raw/v1.1.1/packaging/linux/io.bettertricks.desktop.desktop
 	source = bettertricks.metainfo.xml::https://github.com/RamazanBerk20/Bettertricks/raw/v1.1.1/packaging/linux/io.bettertricks.desktop.metainfo.xml
-	sha256sums = TODO_AFTER_RELEASE
-	sha256sums = TODO_AFTER_RELEASE
-	sha256sums = TODO_AFTER_RELEASE
-	sha256sums = TODO_AFTER_RELEASE
+	sha256sums = e0ee0ae85bcc7ba76641eb4de0b322cdac8f472a615075146ee181ea910ec37c
+	sha256sums = bb826495e04f20eef046c421e2b8ac01fea99fc90215badf0185a210aa4a5208
+	sha256sums = 244031234c734653393af7bb4c7145fe97ad4512e772192507156c006164fb87
+	sha256sums = 4807d0ebb46532e9e367226715dfbdba964c3fc8d7c4a96f551b1606343232a6
 
 pkgname = bettertricks-bin
