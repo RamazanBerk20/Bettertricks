@@ -14,8 +14,11 @@ settings, operation review, command palette, and attended-operation prompt.
   appears, focus moves to its first response.
 - The operation review exposes its bounded, keyboard-focusable scroll area as a named region while
   keeping safeguards and confirmation actions visible around long plans.
-- Active operation monitoring can be hidden without cancellation and reopened from a named sidebar
-  button; a newly attended prompt brings the monitor back so its focused choices are not missed.
+- Active operation monitoring can be hidden without cancellation and reopened from a named button in
+  the window bar; a newly attended prompt brings the monitor back so its focused choices are not missed.
+- The window bar draws its own Minimize, Maximize/Restore, and Close buttons. They are ordinary
+  focusable buttons in a named "Window controls" group with translated labels, and the maximize
+  button's label and icon follow the window state.
 - All interactive elements retain a visible two-pixel focus indicator; palette selection has a
   persistent visual highlight while focus remains in the search field.
 

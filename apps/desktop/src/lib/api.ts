@@ -25,7 +25,7 @@ import type {
 } from "../types";
 import { mockBackend } from "./mock";
 
-const isTauri = typeof window !== "undefined" && Boolean(window.__TAURI_INTERNALS__);
+export const isTauri = typeof window !== "undefined" && Boolean(window.__TAURI_INTERNALS__);
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri) return invoke<T>(command, args);

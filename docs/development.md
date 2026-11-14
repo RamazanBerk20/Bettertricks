@@ -17,7 +17,8 @@ devcontainer exec --workspace-folder . pnpm check
 devcontainer exec --workspace-folder . pnpm test
 ```
 
-`pnpm dev:web` exposes the mock-backed browser preview on port 1420. A real Tauri window
+`pnpm dev:web` exposes the mock-backed browser preview on port 1420. The preview has no native
+window, so the window bar shows no window buttons there. A real Tauri window
 needs access to a display server. For headless host checks, use
 `xvfb-run -a pnpm --filter @bettertricks/desktop tauri dev`.
 

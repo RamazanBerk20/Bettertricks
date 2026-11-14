@@ -23,6 +23,7 @@ import type {
 } from "./types";
 import { Button, Skeleton } from "./components/common";
 import { Sidebar, type AppView } from "./components/sidebar";
+import { WindowBar, WindowFrame, WindowStrip } from "./components/window-bar";
 import { PrefixView } from "./views/prefix-view";
 import { CatalogView } from "./views/catalog-view";
 import { ActivityView } from "./views/activity-view";
@@ -37,7 +38,7 @@ import {
 } from "./components/dialogs";
 
 export function App() {
-  return <I18nProvider><AppContent /></I18nProvider>;
+  return <I18nProvider><WindowFrame /><AppContent /></I18nProvider>;
 }
 
 function AppContent() {
@@ -452,77 +453,84 @@ function AppContent() {
         selectedPrefixId={selectedPrefixId}
         onPrefixChange={setSelectedPrefixId}
         onAddPrefix={() => setAddPrefixOpen(true)}
-        onCommandPalette={() => setPaletteOpen(true)}
         catalog={data.catalog}
         system={data.system}
         runningCount={runningCount}
-        operationStatus={activeOperationId && activePlan && !operationDrawerOpen ? {
-          title: activeOperationEvent?.title ?? t("Preparing changes"),
-          detail: activeOperationFinished
-            ? t("View operation result")
-            : t("{percent}% · {current} of {total}", { percent: Math.round(Math.max(0, Math.min(1, activeOperationEvent?.progress ?? 0)) * 100), current: activeOperationEvent?.step ?? 0, total: activeOperationEvent?.total_steps ?? activePlan.steps.length }),
-          state: activeEntry?.state ?? "planned",
-        } : null}
-        onOpenOperation={() => setOperationDrawerOpen(true)}
       />
-      <main className="main-surface" id="main-content" tabIndex={-1}>
-        {!data.system.ready ? <SystemBanner data={data} onOpenSettings={() => setView("settings")} /> : null}
-        {view === "prefix" ? (
-          <PrefixView
-            prefix={selectedPrefix}
-            operations={data.operations}
-            restorePoints={data.restore_points}
-            onBrowseCatalog={browseCatalog}
-            onOpenPath={openPath}
-            onLaunchTool={launchTool}
-            onCreateRestorePoint={createRestorePoint}
-            onForgetPrefix={forgetPrefix}
-            onRunInstaller={runInstaller}
-            onTrashPrefix={openTrashPrefixDialog}
-          />
-        ) : view === "catalog" ? (
-          <CatalogView
-            prefix={selectedPrefix}
-            catalog={data.catalog}
-            compatibilityHostReady={compatibilityHostReady}
-            compatibilityHostInstalling={installingCompatibilityHost}
-            selectedRecipes={selectedRecipes}
-            onToggleRecipe={toggleRecipe}
-            onSetRecipeSelection={setRecipeSelection}
-            onInstallCompatibilityHost={installCompatibilityHost}
-            onReview={() => setReviewOpen(true)}
-          />
-        ) : view === "activity" ? (
-          <ActivityView
-            operations={data.operations}
-            liveOperationIds={new Set(livePlans.keys())}
-            restorePoints={data.restore_points}
-            onRefresh={refreshOperationalData}
-            onClearActivity={clearActivity}
-            onRetryRecipes={prepareRetry}
-            onOpenOperation={openOperation}
-            onCancelOperation={cancelOperation}
-            onRestoreSnapshot={restoreSnapshot}
-            onDeleteSnapshot={deleteRestorePoint}
-          />
-        ) : (
-          <SettingsView
-            data={data}
-            settings={data.settings}
-            onSettingsChange={updateSettings}
-            onClearCache={clearCache}
-            onClearRestorePoints={clearRestorePoints}
-            onOpenPath={(path) => api.openPath(path).catch((reason) => setToast({ tone: "error", message: String(reason) }))}
-            onOpenLegacyVerb={() => setLegacyVerbOpen(true)}
-            onCheckCatalog={checkCatalog}
-            onRollbackCatalog={rollbackCatalog}
-            onInstallCompatibilityHost={installCompatibilityHost}
-            compatibilityHostInstalling={installingCompatibilityHost}
-            onRestorePrefix={restorePrefix}
-            onDeleteRestorePoint={deleteRestorePoint}
-          />
-        )}
-      </main>
+      <div className="workspace">
+        <WindowBar
+          prefix={view === "prefix" ? null : selectedPrefix}
+          onOpenPrefix={() => setView("prefix")}
+          onCommandPalette={() => setPaletteOpen(true)}
+          operationStatus={activeOperationId && activePlan && !operationDrawerOpen ? {
+            title: activeOperationEvent?.title ?? t("Preparing changes"),
+            detail: activeOperationFinished
+              ? t("View operation result")
+              : t("{percent}% · {current} of {total}", { percent: Math.round(Math.max(0, Math.min(1, activeOperationEvent?.progress ?? 0)) * 100), current: activeOperationEvent?.step ?? 0, total: activeOperationEvent?.total_steps ?? activePlan.steps.length }),
+            state: activeEntry?.state ?? "planned",
+          } : null}
+          onOpenOperation={() => setOperationDrawerOpen(true)}
+          onError={(message) => setToast({ tone: "error", message })}
+        />
+        <main className="main-surface" id="main-content" tabIndex={-1}>
+          {!data.system.ready ? <SystemBanner data={data} onOpenSettings={() => setView("settings")} /> : null}
+          {view === "prefix" ? (
+            <PrefixView
+              prefix={selectedPrefix}
+              operations={data.operations}
+              restorePoints={data.restore_points}
+              onBrowseCatalog={browseCatalog}
+              onOpenPath={openPath}
+              onLaunchTool={launchTool}
+              onCreateRestorePoint={createRestorePoint}
+              onForgetPrefix={forgetPrefix}
+              onRunInstaller={runInstaller}
+              onTrashPrefix={openTrashPrefixDialog}
+            />
+          ) : view === "catalog" ? (
+            <CatalogView
+              prefix={selectedPrefix}
+              catalog={data.catalog}
+              compatibilityHostReady={compatibilityHostReady}
+              compatibilityHostInstalling={installingCompatibilityHost}
+              selectedRecipes={selectedRecipes}
+              onToggleRecipe={toggleRecipe}
+              onSetRecipeSelection={setRecipeSelection}
+              onInstallCompatibilityHost={installCompatibilityHost}
+              onReview={() => setReviewOpen(true)}
+            />
+          ) : view === "activity" ? (
+            <ActivityView
+              operations={data.operations}
+              liveOperationIds={new Set(livePlans.keys())}
+              restorePoints={data.restore_points}
+              onRefresh={refreshOperationalData}
+              onClearActivity={clearActivity}
+              onRetryRecipes={prepareRetry}
+              onOpenOperation={openOperation}
+              onCancelOperation={cancelOperation}
+              onRestoreSnapshot={restoreSnapshot}
+              onDeleteSnapshot={deleteRestorePoint}
+            />
+          ) : (
+            <SettingsView
+              data={data}
+              settings={data.settings}
+              onSettingsChange={updateSettings}
+              onClearCache={clearCache}
+              onClearRestorePoints={clearRestorePoints}
+              onOpenPath={(path) => api.openPath(path).catch((reason) => setToast({ tone: "error", message: String(reason) }))}
+              onOpenLegacyVerb={() => setLegacyVerbOpen(true)}
+              onCheckCatalog={checkCatalog}
+              onRollbackCatalog={rollbackCatalog}
+              onInstallCompatibilityHost={installCompatibilityHost}
+              compatibilityHostInstalling={installingCompatibilityHost}
+              onRestorePrefix={restorePrefix}
+              onDeleteRestorePoint={deleteRestorePoint}
+            />
+          )}
+        </main>
+      </div>
 
       <AddPrefixDialog open={addPrefixOpen} onOpenChange={setAddPrefixOpen} onComplete={handlePrefixComplete} runtimes={data.system.runtimes} />
       <ReviewDialog
@@ -594,7 +602,7 @@ function LoadingScreen() {
 
 function FatalError({ error, onRetry }: { error: string; onRetry: () => void }) {
   const { t } = useI18n();
-  return <div className="fatal-screen" role="alert"><div className="fatal-mark"><WarningCircle size={27} weight="fill" /></div><h1>{t("Bettertricks could not start")}</h1><p>{error}</p><Button variant="primary" onClick={onRetry}><ArrowClockwise /> {t("Try again")}</Button><small>{t("Your Wine prefixes were not changed.")}</small></div>;
+  return <div className="fatal-screen" role="alert"><WindowStrip /><div className="fatal-mark"><WarningCircle size={27} weight="fill" /></div><h1>{t("Bettertricks could not start")}</h1><p>{error}</p><Button variant="primary" onClick={onRetry}><ArrowClockwise /> {t("Try again")}</Button><small>{t("Your Wine prefixes were not changed.")}</small></div>;
 }
 
 function SystemBanner({ data, onOpenSettings }: { data: BootstrapPayload; onOpenSettings: () => void }) {

@@ -171,7 +171,6 @@
   "Install Winetricks to enable the isolated compatibility path for custom .verb files.": "安装Winetricks以启用自定义.verb文件的隔离兼容性路径。",
   "Installed": "已安装",
   "Installed components": "安装的组件",
-  "Installing into": "安装到",
   "Installing signed catalog {version}": "安装签名目录{version}",
   "Installing verified Winetricks {version}": "安装已验证Winetricks{version}",
   "Installing…": "正在安装...",
@@ -211,7 +210,6 @@
   "No matching activity": "没有匹配的活动",
   "No matching commands": "没有匹配的命令",
   "No matching components": "没有匹配的组件",
-  "No prefix selected": "未选择前缀",
   "No recent failures": "最近没有失败",
   "No restore point yet": "还没有恢复点",
   "No restore points have been created yet.": "尚未创建还原点。",
@@ -416,5 +414,10 @@
   "Older restore points are deleted automatically after a new one is created.": "创建新的还原点后，较旧的还原点会被自动删除。",
   "Unlimited": "不限",
   "Restore points use {size}.": "还原点占用 {size}。",
-  "Support development": "支持开发"
+  "Support development": "支持开发",
+  "Minimize window": "最小化窗口",
+  "Maximize window": "最大化窗口",
+  "Restore window": "还原窗口",
+  "Close window": "关闭窗口",
+  "Window controls": "窗口控件"
 }

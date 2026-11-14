@@ -171,7 +171,6 @@
   "Install Winetricks to enable the isolated compatibility path for custom .verb files.": "Installa Winetricks per abilitare il percorso di compatibilità isolato per i file .verb personalizzati.",
   "Installed": "Installato",
   "Installed components": "Componenti installati",
-  "Installing into": "Installazione in",
   "Installing signed catalog {version}": "Installazione del catalogo firmato {version}",
   "Installing verified Winetricks {version}": "Installazione verificata Winetricks {version}",
   "Installing…": "Installazione…",
@@ -211,7 +210,6 @@
   "No matching activity": "Nessuna attività corrispondente",
   "No matching commands": "Nessun comando corrispondente",
   "No matching components": "Nessun componente corrispondente",
-  "No prefix selected": "Nessun prefisso selezionato",
   "No recent failures": "Nessun fallimento recente",
   "No restore point yet": "Nessun punto di ripristino ancora",
   "No restore points have been created yet.": "Nessun punto di ripristino è stato ancora creato.",
@@ -416,5 +414,10 @@
   "Older restore points are deleted automatically after a new one is created.": "I punti di ripristino più vecchi vengono eliminati automaticamente dopo averne creato uno nuovo.",
   "Unlimited": "Illimitati",
   "Restore points use {size}.": "I punti di ripristino occupano {size}.",
-  "Support development": "Sostieni lo sviluppo"
+  "Support development": "Sostieni lo sviluppo",
+  "Minimize window": "Riduci a icona la finestra",
+  "Maximize window": "Ingrandisci la finestra",
+  "Restore window": "Ripristina la finestra",
+  "Close window": "Chiudi la finestra",
+  "Window controls": "Controlli della finestra"
 }

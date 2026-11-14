@@ -171,7 +171,6 @@
   "Install Winetricks to enable the isolated compatibility path for custom .verb files.": "사용자 정의 .verb 파일에 대한 격리된 호환성 경로를 활성화하려면 Winetricks를 설치하세요.",
   "Installed": "설치됨",
   "Installed components": "설치된 구성 요소",
-  "Installing into": "다음에 설치",
   "Installing signed catalog {version}": "서명된 카탈로그 설치 {version}",
   "Installing verified Winetricks {version}": "설치가 확인됨 Winetricks {version}",
   "Installing…": "설치 중…",
@@ -211,7 +210,6 @@
   "No matching activity": "일치하는 활동 없음",
   "No matching commands": "일치하는 명령이 없습니다.",
   "No matching components": "일치하는 구성요소가 없습니다.",
-  "No prefix selected": "선택된 접두어가 없습니다.",
   "No recent failures": "최근 실패 없음",
   "No restore point yet": "아직 복원 지점이 없습니다.",
   "No restore points have been created yet.": "아직 복원 지점이 생성되지 않았습니다.",
@@ -416,5 +414,10 @@
   "Older restore points are deleted automatically after a new one is created.": "새 복원 지점을 만들면 오래된 복원 지점은 자동으로 삭제됩니다.",
   "Unlimited": "무제한",
   "Restore points use {size}.": "복원 지점이 {size}를 사용합니다.",
-  "Support development": "개발 후원하기"
+  "Support development": "개발 후원하기",
+  "Minimize window": "창 최소화",
+  "Maximize window": "창 최대화",
+  "Restore window": "창 복원",
+  "Close window": "창 닫기",
+  "Window controls": "창 제어"
 }

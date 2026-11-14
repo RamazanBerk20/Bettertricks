@@ -171,7 +171,6 @@
   "Install Winetricks to enable the isolated compatibility path for custom .verb files.": "Winetricks をインストールして、カスタム .verb ファイルの分離互換パスを有効にします。",
   "Installed": "インストール済み",
   "Installed components": "インストールされているコンポーネント",
-  "Installing into": "にインストールする",
   "Installing signed catalog {version}": "署名入りカタログのインストール {version}",
   "Installing verified Winetricks {version}": "インストール確認済み Winetricks {version}",
   "Installing…": "インストール中…",
@@ -211,7 +210,6 @@
   "No matching activity": "一致するアクティビティがありません",
   "No matching commands": "一致するコマンドはありません",
   "No matching components": "一致するコンポーネントがありません",
-  "No prefix selected": "プレフィックスが選択されていません",
   "No recent failures": "最近失敗はありません",
   "No restore point yet": "復元ポイントはまだありません",
   "No restore points have been created yet.": "復元ポイントはまだ作成されていません。",
@@ -416,5 +414,10 @@
   "Older restore points are deleted automatically after a new one is created.": "新しい復元ポイントを作成すると、古い復元ポイントは自動的に削除されます。",
   "Unlimited": "無制限",
   "Restore points use {size}.": "復元ポイントの使用量: {size}",
-  "Support development": "開発を支援する"
+  "Support development": "開発を支援する",
+  "Minimize window": "ウィンドウを最小化",
+  "Maximize window": "ウィンドウを最大化",
+  "Restore window": "ウィンドウを元のサイズに戻す",
+  "Close window": "ウィンドウを閉じる",
+  "Window controls": "ウィンドウ操作"
 }

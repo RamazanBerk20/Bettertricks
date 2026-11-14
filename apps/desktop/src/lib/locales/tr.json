@@ -171,7 +171,6 @@
   "Install Winetricks to enable the isolated compatibility path for custom .verb files.": "Özel .verb dosyalarının yalıtılmış uyumluluk yolunu etkinleştirmek için Winetricks'i yükleyin.",
   "Installed": "Kurulu",
   "Installed components": "Kurulu bileşenler",
-  "Installing into": "Kurulum hedefi",
   "Installing signed catalog {version}": "İmzalı {version} kataloğu yükleniyor",
   "Installing verified Winetricks {version}": "Doğrulanmış Winetricks {version} yükleniyor",
   "Installing…": "Yükleniyor…",
@@ -211,7 +210,6 @@
   "No matching activity": "Eşleşen etkinlik yok",
   "No matching commands": "Eşleşen komut yok",
   "No matching components": "Eşleşen bileşen yok",
-  "No prefix selected": "Ön ek seçilmedi",
   "No recent failures": "Yakın zamanda hata yok",
   "No restore point yet": "Henüz geri yükleme noktası yok",
   "No restore points have been created yet.": "Henüz geri yükleme noktası oluşturulmadı.",
@@ -416,5 +414,10 @@
   "Older restore points are deleted automatically after a new one is created.": "Yeni bir geri yükleme noktası oluşturulduktan sonra eski noktalar otomatik olarak silinir.",
   "Unlimited": "Sınırsız",
   "Restore points use {size}.": "Geri yükleme noktaları {size} yer kaplıyor.",
-  "Support development": "Geliştirmeyi destekle"
+  "Support development": "Geliştirmeyi destekle",
+  "Minimize window": "Pencereyi simge durumuna küçült",
+  "Maximize window": "Pencereyi büyüt",
+  "Restore window": "Pencereyi önceki boyutuna getir",
+  "Close window": "Pencereyi kapat",
+  "Window controls": "Pencere denetimleri"
 }

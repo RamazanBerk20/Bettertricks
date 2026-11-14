@@ -5,7 +5,7 @@ import { vi } from "vitest";
 import { App } from "../app";
 import { ProgressBar } from "../components/common";
 import { OperationDrawer, ReviewDialog } from "../components/dialogs";
-import { Sidebar } from "../components/sidebar";
+import { WindowBar } from "../components/window-bar";
 import { api } from "../lib/api";
 import { entryFromEvents } from "../lib/operations";
 import { ActivityView } from "../views/activity-view";
@@ -129,28 +129,35 @@ describe("Bettertricks desktop shell", () => {
     expect(screen.getByRole("progressbar", { name: "Installing" })).toHaveAttribute("aria-valuenow", "42");
   });
 
-  it("keeps a hidden running operation available from the sidebar", async () => {
+  it("keeps a hidden running operation available from the window bar", async () => {
     const payload = await api.bootstrap();
     const reopen = vi.fn();
     render(
-      <Sidebar
-        view="catalog"
-        onViewChange={() => undefined}
-        prefixes={payload.prefixes}
-        selectedPrefixId={payload.prefixes[0]?.id ?? null}
-        onPrefixChange={() => undefined}
-        onAddPrefix={() => undefined}
+      <WindowBar
+        prefix={payload.prefixes[0] ?? null}
+        onOpenPrefix={() => undefined}
         onCommandPalette={() => undefined}
-        catalog={payload.catalog}
-        system={payload.system}
-        runningCount={1}
         operationStatus={{ title: "Installing runtime", detail: "42% · 3 of 7", state: "running" }}
         onOpenOperation={reopen}
+        onError={() => undefined}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Show current operation: Installing runtime" }));
     expect(reopen).toHaveBeenCalledOnce();
+    // The browser preview has no native window, so it draws no window buttons.
+    expect(screen.queryByRole("group", { name: "Window controls" })).not.toBeInTheDocument();
+  });
+
+  it("names the working prefix in the window bar only where the page does not", async () => {
+    render(<TooltipProvider><App /></TooltipProvider>);
+
+    await screen.findByRole("heading", { name: "Default prefix" });
+    expect(screen.queryByRole("button", { name: /Default prefix Wine 11\.13/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Activity/ }));
+    await screen.findByRole("heading", { name: "Activity" });
+    fireEvent.click(screen.getByRole("button", { name: /Default prefix Wine 11\.13/ }));
+    expect(await screen.findByRole("heading", { name: "Default prefix" })).toBeInTheDocument();
   });
 
   it("collects required recipe information before an operation can start", async () => {

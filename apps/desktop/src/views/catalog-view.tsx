@@ -6,7 +6,6 @@ import {
   CheckCircle,
   CloudArrowDown,
   Funnel,
-  HardDrive,
   MagnifyingGlass,
   Package,
   Plus,
@@ -147,10 +146,6 @@ export function CatalogView({
           </div>
           <h1>{t("Components")}</h1>
           <p>{t("Find runtimes, fonts, applications, and compatibility settings for {prefix}.", { prefix: prefix?.name ?? t("a Wine prefix") })}</p>
-        </div>
-        <div className="catalog-prefix-chip">
-          <HardDrive size={18} weight="duotone" />
-          <span><small>{t("Installing into")}</small><strong>{prefix?.name ?? t("No prefix selected")}</strong></span>
         </div>
       </header>
 

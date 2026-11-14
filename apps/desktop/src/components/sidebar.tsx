@@ -1,19 +1,14 @@
 import clsx from "clsx";
 import {
   ArrowsClockwise,
-  CaretRight,
-  CheckCircle,
   ClockCounterClockwise,
-  Command,
   GearSix,
   House,
   Package,
   Plus,
   Pulse,
-  SpinnerGap,
-  WarningCircle,
 } from "@phosphor-icons/react";
-import type { CatalogSummary, OperationState, SystemReport, UUID, WinePrefix } from "../types";
+import type { CatalogSummary, SystemReport, UUID, WinePrefix } from "../types";
 import { useI18n, type TranslationValues } from "../lib/i18n";
 import { PrefixSourceIcon } from "./common";
 
@@ -26,16 +21,9 @@ interface SidebarProps {
   selectedPrefixId: UUID | null;
   onPrefixChange: (id: UUID) => void;
   onAddPrefix: () => void;
-  onCommandPalette: () => void;
   catalog: CatalogSummary;
   system: SystemReport;
   runningCount: number;
-  operationStatus: {
-    title: string;
-    detail: string;
-    state: OperationState;
-  } | null;
-  onOpenOperation: () => void;
 }
 
 export function Sidebar({
@@ -45,29 +33,21 @@ export function Sidebar({
   selectedPrefixId,
   onPrefixChange,
   onAddPrefix,
-  onCommandPalette,
   catalog,
   system,
   runningCount,
-  operationStatus,
-  onOpenOperation,
 }: SidebarProps) {
   const { t, formatNumber } = useI18n();
   return (
     <aside className="sidebar">
-      <div className="brand-row">
+      {/* The brand row continues the window bar, so it moves the window too. */}
+      <div className="brand-row" data-tauri-drag-region="deep">
         <img className="brand-mark" src="/icon.png" alt="" aria-hidden="true" draggable={false} />
         <div className="brand-copy">
           <strong>Bettertricks</strong>
           <span>{t("Wine, made manageable")}</span>
         </div>
       </div>
-
-      <button className="command-trigger" onClick={onCommandPalette}>
-        <Command size={17} />
-        <span>{t("Search or run")}</span>
-        <kbd>Ctrl K</kbd>
-      </button>
 
       <nav className="primary-nav" aria-label={t("Main navigation")}>
         <NavButton active={view === "prefix"} icon={<House />} label={t("Overview")} onClick={() => onViewChange("prefix")} />
@@ -103,15 +83,6 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-footer">
-        {operationStatus ? (
-          <button className={clsx("sidebar-operation", `state-${operationStatus.state}`)} onClick={onOpenOperation} aria-label={t("Show current operation: {operation}", { operation: operationStatus.title })}>
-            <span className="sidebar-operation-icon">
-              {operationStatus.state === "succeeded" ? <CheckCircle weight="fill" /> : operationStatus.state === "failed" || operationStatus.state === "cancelled" ? <WarningCircle weight="fill" /> : <SpinnerGap className="spin" />}
-            </span>
-            <span className="sidebar-operation-copy"><strong dir="auto">{operationStatus.title}</strong><small dir="auto">{operationStatus.detail}</small></span>
-            <CaretRight className="sidebar-operation-caret directional-icon" />
-          </button>
-        ) : null}
         <div className={clsx("system-summary", system.ready ? "ready" : "warning")}>
           <span className="system-summary-icon">
             {system.ready ? <Pulse size={16} weight="bold" /> : <ArrowsClockwise size={16} />}
