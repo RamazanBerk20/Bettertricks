@@ -25,6 +25,6 @@ pkgbase = bettertricks
 	options = !lto
 	options = !debug
 	source = bettertricks-1.2.0.tar.gz::https://github.com/RamazanBerk20/Bettertricks/archive/refs/tags/v1.2.0.tar.gz
-	sha256sums = TODO_AFTER_RELEASE
+	sha256sums = e8c60af34b50fb194147e401210d4774df8318e8665d8ed254514cc67f324323
 
 pkgname = bettertricks
